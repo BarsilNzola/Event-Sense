@@ -1,39 +1,30 @@
 import { useEffect, useState } from "react";
-import { getPredictionSummary } from "../services/api";
+import { getLiveMarkets } from "../services/api";
 import WalletConnect from "../components/WalletConnect";
 import MarketCard from "../components/MarketCard";
 import AIAssistant from "../components/AIAssistant";
+import Loader from "../components/Loader";
 
 export default function Dashboard() {
   const [markets, setMarkets] = useState([]);
   const [wallet, setWallet] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchMarkets = async () => {
       try {
-        const result = await getPredictionSummary();
-        // Example mock shaping
-        const mockData = [
-          {
-            question: "Will BTC exceed $70k by Dec?",
-            trend: "up",
-            change: 8.2,
-            aiSummary: result.summary,
-            history: [
-              { date: "Oct 1", probability: 0.52 },
-              { date: "Oct 5", probability: 0.60 },
-              { date: "Oct 10", probability: 0.68 },
-            ],
-            cid: result.cid,
-          },
-        ];
-        setMarkets(mockData);
+        const data = await getLiveMarkets();
+        setMarkets(data);
       } catch (err) {
         console.error(err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchMarkets();
   }, []);
+
+  if (loading) return <Loader />;
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8">
@@ -43,9 +34,11 @@ export default function Dashboard() {
         EventSense Prediction Dashboard
       </h1>
 
-      {markets.map((m, i) => (
-        <MarketCard key={i} market={m} />
-      ))}
+      {markets.length > 0 ? (
+        markets.map((m) => <MarketCard key={m.id} market={m} />)
+      ) : (
+        <p className="text-center text-gray-500">No market data available.</p>
+      )}
 
       <AIAssistant />
     </div>
