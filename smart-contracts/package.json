@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat run scripts/deploy.js --network bnbTestnet",
+    "node": "hardhat node",
+    "test:local": "hardhat test --network localhost"
   },
   "keywords": [],
   "author": "",
@@ -18,11 +22,11 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.18.12",
     "chai": "^5.3.3",
+    "dotenv": "^16.4.7",
     "ethers": "^6.15.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "hardhat": "^3.0.9",
     "mocha": "^11.7.4",
     "typescript": "~5.8.0"
-  },
-  "type": "module"
+  }
 }
