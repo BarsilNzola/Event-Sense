@@ -27,20 +27,29 @@ export default function Dashboard() {
   if (loading) return <Loader />;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
-      <WalletConnect onConnect={setWallet} />
+    <div className="min-h-screen bg-gradient-to-b from-duneGold to-duneClay p-6 text-duneDark">
+      <div className="max-w-6xl mx-auto space-y-8">
+        <WalletConnect onConnect={setWallet} />
 
-      <h1 className="text-3xl font-bold text-center mb-6 text-gray-800 drop-shadow">
-        EventSense Prediction Dashboard
-      </h1>
+        <h1 className="text-3xl font-bold text-center mb-6 drop-shadow">
+          EventSense Prediction Dashboard
+        </h1>
 
-      {markets.length > 0 ? (
-        markets.map((m) => <MarketCard key={m.id} market={m} />)
-      ) : (
-        <p className="text-center text-gray-500">No market data available.</p>
-      )}
+        {markets.length > 0 ? (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {markets.map((m) => (
+              <MarketCard key={m.id} market={m} />
+            ))}
+          </div>
+        
+        ) : (
+          <p className="text-center text-duneBrown">
+            No market data available.
+          </p>
+        )}
 
-      <AIAssistant />
+        <AIAssistant />
+      </div>
     </div>
   );
 }
