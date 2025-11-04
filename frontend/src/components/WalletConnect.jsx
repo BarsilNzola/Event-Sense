@@ -11,7 +11,7 @@ export default function WalletConnect({ onConnect }) {
     if (injectedConnector) {
       connect({ connector: injectedConnector });
     } else {
-      alert("Please install MetaMask or a BNB-compatible wallet.");
+      alert("Please install MetaMask or a compatible wallet.");
     }
   };
 
@@ -22,15 +22,15 @@ export default function WalletConnect({ onConnect }) {
   }, [isConnected, address, onConnect]);
 
   return (
-    <div className="flex justify-end items-center gap-3 p-4 bg-white rounded-xl shadow-md">
+    <div className="flex justify-end items-center">
       {isConnected && address ? (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 bg-white rounded-xl shadow-sm px-4 py-2 border border-lightTeal">
           <span className="text-gray-700 text-sm font-mono">
-            Connected: {address.slice(0, 6)}...{address.slice(-4)}
+            {address.slice(0, 6)}...{address.slice(-4)}
           </span>
           <button
             onClick={disconnect}
-            className="bg-red-400 hover:bg-red-300 text-white px-3 py-1 rounded-lg font-semibold text-sm"
+            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg font-semibold text-sm transition"
           >
             Disconnect
           </button>
@@ -38,7 +38,7 @@ export default function WalletConnect({ onConnect }) {
       ) : (
         <button
           onClick={handleConnect}
-          className="bg-yellow-400 hover:bg-yellow-300 text-black px-4 py-2 rounded-lg font-semibold"
+          className="bg-tropicalTeal hover:bg-darkTeal text-white px-4 py-2 rounded-xl font-semibold shadow-sm transition"
         >
           Connect Wallet
         </button>

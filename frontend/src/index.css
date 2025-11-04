@@ -9,7 +9,7 @@
   font-weight: 400;
   color-scheme: light;
   color: #4A2B1C; /* deep brown text */
-  background-color: #E59B48; /* golden-sand background */
+  background-color: #EFE9E0; /* soft ivory background */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -28,19 +28,19 @@ body {
 /* ---------- Links ---------- */
 a {
   font-weight: 500;
-  color: #98521F; /* warm caramel */
+  color: #0F9E99; /* tropical teal */
   text-decoration: none;
 }
 a:hover {
-  color: #4A2B1C; /* deep brown */
+  color: #0C7F7A; /* dark teal */
 }
 
 /* ---------- Buttons ---------- */
 button {
-  @apply bg-warm-caramel text-white font-semibold py-2 px-4 rounded-lg transition duration-300;
+  @apply bg-tropicalTeal text-white font-semibold py-2 px-4 rounded-lg transition duration-300;
 }
 button:hover {
-  @apply bg-deep-brown;
+  @apply bg-darkTeal;
 }
 
 /* ---------- Headings ---------- */
@@ -50,9 +50,9 @@ h1, h2, h3 {
 }
 
 /* ---------- Utility Classes ---------- */
-.bg-desert {
-  background-color: #E59B48;
+.bg-soft-ivory {
+  background-color: #EFE9E0;
 }
-.text-desert {
-  color: #4A2B1C;
+.text-tropical-teal {
+  color: #0F9E99;
 }
