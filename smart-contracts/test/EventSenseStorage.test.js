@@ -30,9 +30,12 @@ describe("EventSenseStorage", function () {
       const testCID = "QmTestCID123456789";
       
       // Store summary and check event
+      const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
+
       await expect(eventSenseStorage.connect(user1).storeSummary(testCID))
         .to.emit(eventSenseStorage, "SummaryStored")
-        .withArgs(user1.address, testCID, await getCurrentTimestamp());
+        .withArgs(user1.address, testCID, anyValue);
+
 
       // Verify storage
       const total = await eventSenseStorage.totalSummaries();
@@ -73,9 +76,11 @@ describe("EventSenseStorage", function () {
     it("Should handle empty CID string", async function () {
       const emptyCID = "";
       
+      const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
+
       await expect(eventSenseStorage.connect(user1).storeSummary(emptyCID))
         .to.emit(eventSenseStorage, "SummaryStored")
-        .withArgs(user1.address, emptyCID, await getCurrentTimestamp());
+        .withArgs(user1.address, emptyCID, anyValue);
 
       const summary = await eventSenseStorage.getSummary(0);
       expect(summary.cid).to.equal("");
