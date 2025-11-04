@@ -1,10 +1,10 @@
-import OpenAI from "openai";
+import axios from "axios";
 import dotenv from "dotenv";
+
 dotenv.config();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1";
+const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY;
 
 export const generateAISummary = async (marketData) => {
   const prompt = `
@@ -16,12 +16,26 @@ Your response should include:
 - Key probabilities
 - Notable changes
 - Short AI insight (2-3 sentences)
-  `;
+`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [{ role: "user", content: prompt }],
-  });
+  try {
+    const response = await axios.post(
+      HUGGINGFACE_API_URL,
+      { inputs: prompt },
+      {
+        headers: {
+          Authorization: `Bearer ${HUGGINGFACE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-  return response.choices[0].message.content;
+    return (
+      response.data?.[0]?.generated_text ||
+      "No response generated from AI model."
+    );
+  } catch (error) {
+    console.error("AI summary generation failed:", error.response?.data || error.message);
+    throw new Error("AI summary generation failed");
+  }
 };
