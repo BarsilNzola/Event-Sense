@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getLiveMarkets } from "../services/api";
+import { getPredictionSummary } from "../services/api";
 import WalletConnect from "../components/WalletConnect";
 import MarketCard from "../components/MarketCard";
 import AIAssistant from "../components/AIAssistant";
@@ -13,7 +13,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchMarkets = async () => {
       try {
-        const data = await getLiveMarkets();
+        const data = await getPredictionSummary();
         setMarkets(data);
       } catch (err) {
         console.error(err);

@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import { useConnect, useAccount, useDisconnect } from "wagmi";
 
 export default function WalletConnect({ onConnect }) {
@@ -14,8 +15,7 @@ export default function WalletConnect({ onConnect }) {
     }
   };
 
-  // Notify parent component when connection state changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (onConnect) {
       onConnect(isConnected ? { address } : null);
     }
