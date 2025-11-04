@@ -14,7 +14,7 @@ export default function Dashboard() {
     const fetchMarkets = async () => {
       try {
         const data = await getPredictionSummary();
-        setMarkets(data);
+        setMarkets(data.markets || []);
       } catch (err) {
         console.error(err);
       } finally {
