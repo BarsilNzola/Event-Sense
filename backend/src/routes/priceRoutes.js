@@ -53,7 +53,7 @@ router.get("/feeds-with-changes", async (req, res) => {
         
         pricesWithChanges[symbol] = {
           price: priceData.price,
-          confidence: priceData.confidence,
+          confidence: priceData.confidence || 0, // Ensure confidence is never NaN
           change: changeData?.change || 0,
           trend: changeData?.trend || 'flat',
           timestamp: priceData.timestamp,

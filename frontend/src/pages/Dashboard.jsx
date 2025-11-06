@@ -4,25 +4,44 @@ import WalletConnect from "../components/WalletConnect";
 import MarketCard from "../components/MarketCard";
 import PriceFeed from "../components/PriceFeed";
 import AIAssistant from "../components/AIAssistant";
+import NewsFeed from "../components/NewsFeed";
 
 export default function Dashboard() {
   const [markets, setMarkets] = useState([]);
   const [wallet, setWallet] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [autoInsights, setAutoInsights] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchMarkets = async () => {
+    const fetchData = async () => {
       try {
-        const data = await getPredictionSummary();
-        setMarkets(data.markets || []);
+        const [marketData, insightsData] = await Promise.all([
+          getPredictionSummary(),
+          fetchAutoInsights()
+        ]);
+        setMarkets(marketData.markets || []);
+        setAutoInsights(insightsData);
       } catch (err) {
-        console.error("❌ Error fetching prediction summary:", err);
+        console.error("Error fetching data:", err);
       } finally {
         setLoading(false);
+        setInsightsLoading(false);
       }
     };
-    fetchMarkets();
+    fetchData();
   }, []);
+
+  const fetchAutoInsights = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/ai/insights/auto");
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching auto insights:", error);
+      return null;
+    }
+  };
 
   if (loading) {
     return (
@@ -64,7 +83,7 @@ export default function Dashboard() {
     }}>
       {/* Header */}
       <div style={{ 
-        maxWidth: '1200px', 
+        maxWidth: '1400px', 
         margin: '0 auto 40px' 
       }}>
         <div style={{
@@ -111,53 +130,205 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="max-w-7xl mx-auto mb-10">
+      {/* Price Feed */}
+      <div style={{ maxWidth: '1400px', margin: '0 auto 40px' }}>
         <PriceFeed />
       </div>
 
-      {/* Market Data Section */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        <h2 style={{
-          fontSize: '1.75rem',
-          fontWeight: '600',
-          color: '#0F9E99',
-          marginBottom: '24px'
-        }}>
-          🔮 Live Market Insights
-        </h2>
+      {/* Main Content Grid */}
+      <div style={{ 
+        maxWidth: '1400px', 
+        margin: '0 auto',
+        display: 'grid',
+        gridTemplateColumns: '2fr 1fr',
+        gap: '32px',
+        alignItems: 'start'
+      }}>
+        
+        {/* Left Column - Markets & News */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          
+          {/* Market Data Section */}
+          <div>
+            <h2 style={{
+              fontSize: '1.75rem',
+              fontWeight: '600',
+              color: '#0F9E99',
+              marginBottom: '24px'
+            }}>
+              Live Market Insights
+            </h2>
 
-        {markets.length > 0 ? (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-            gap: '24px'
-          }}>
-            {markets.map((m) => (
-              <MarketCard key={m.id} market={m} />
-            ))}
+            {markets.length > 0 ? (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+                gap: '24px'
+              }}>
+                {markets.map((m) => (
+                  <MarketCard key={m.id} market={m} />
+                ))}
+              </div>
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                color: '#98521F',
+                backgroundColor: 'white',
+                border: '1px solid #0F9E99',
+                padding: '40px',
+                borderRadius: '16px',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+              }}>
+                <p style={{ fontSize: '1.125rem', marginBottom: '8px' }}>
+                  No market data available.
+                </p>
+                <p style={{ fontSize: '0.875rem' }}>Try refreshing the page.</p>
+              </div>
+            )}
           </div>
-        ) : (
+
+          {/* News Feed Section */}
+          <div>
+            <h2 style={{
+              fontSize: '1.75rem',
+              fontWeight: '600',
+              color: '#0F9E99',
+              marginBottom: '24px'
+            }}>
+              Market News
+            </h2>
+            <NewsFeed />
+          </div>
+        </div>
+
+        {/* Right Column - AI Insights & Assistant */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          
+          {/* Auto Insights Section */}
           <div style={{
-            textAlign: 'center',
-            color: '#98521F',
             backgroundColor: 'white',
-            border: '1px solid #0F9E99',
-            padding: '40px',
             borderRadius: '16px',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            padding: '24px',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            border: '1px solid #E0F2F1'
           }}>
-            <p style={{ fontSize: '1.125rem', marginBottom: '8px' }}>
-              No market data available.
-            </p>
-            <p style={{ fontSize: '0.875rem' }}>Try refreshing the page.</p>
+            <h3 style={{
+              fontSize: '1.25rem',
+              fontWeight: '600',
+              color: '#0F9E99',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              AI Market Analysis
+            </h3>
+
+            {insightsLoading ? (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <div style={{
+                  width: '24px',
+                  height: '24px',
+                  border: '3px solid #0F9E99',
+                  borderTop: '3px solid transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 12px'
+                }}></div>
+                <p style={{ color: '#98521F', fontSize: '0.875rem' }}>
+                  Generating insights...
+                </p>
+              </div>
+            ) : autoInsights?.analysis ? (
+              <div>
+                <div style={{
+                  backgroundColor: '#F8FAFC',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  border: '1px solid #E2E8F0',
+                  marginBottom: '16px'
+                }}>
+                  <p style={{
+                    color: '#4A2B1C',
+                    lineHeight: '1.6',
+                    fontSize: '0.95rem',
+                    whiteSpace: 'pre-line'
+                  }}>
+                    {autoInsights.analysis}
+                  </p>
+                </div>
+                
+                {autoInsights.dataSources && (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '8px',
+                    fontSize: '0.75rem',
+                    color: '#98521F'
+                  }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontWeight: '600', color: '#0F9E99' }}>
+                        {autoInsights.dataSources.cryptoPrices}
+                      </div>
+                      <div>Crypto Prices</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontWeight: '600', color: '#0F9E99' }}>
+                        {autoInsights.dataSources.predictionMarkets}
+                      </div>
+                      <div>Markets</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontWeight: '600', color: '#0F9E99' }}>
+                        {autoInsights.dataSources.newsArticles}
+                      </div>
+                      <div>News</div>
+                    </div>
+                  </div>
+                )}
+                
+                {autoInsights.timestamp && (
+                  <div style={{
+                    fontSize: '0.7rem',
+                    color: '#6B7280',
+                    textAlign: 'center',
+                    marginTop: '12px',
+                    borderTop: '1px solid #E5E7EB',
+                    paddingTop: '12px'
+                  }}>
+                    Updated: {new Date(autoInsights.timestamp).toLocaleTimeString()}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                color: '#98521F',
+                padding: '20px',
+                backgroundColor: '#F8FAFC',
+                borderRadius: '8px',
+                border: '1px dashed #E2E8F0'
+              }}>
+                <p style={{ fontSize: '0.875rem' }}>
+                  Insights will be available shortly. The AI is analyzing market data.
+                </p>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* AI Assistant Section */}
+          <div>
+            <AIAssistant markets={markets} />
+          </div>
+        </div>
       </div>
 
-      {/* AI Assistant Section */}
-      <div style={{ maxWidth: '800px', margin: '60px auto 0' }}>
-        <AIAssistant markets={markets} />
-      </div>
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

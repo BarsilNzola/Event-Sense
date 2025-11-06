@@ -5,61 +5,70 @@ export default function AIAssistant({ markets }) {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
+  const [conversation, setConversation] = useState([]);
 
   // 🧠 Manual text-based AI query
   const handleAsk = async () => {
     if (!query.trim()) return;
+    
     setLoading(true);
+    const userMessage = { type: 'user', content: query };
+    setConversation(prev => [...prev, userMessage]);
+    
     try {
       const { data } = await axios.post("http://localhost:5000/api/ai/query", { question: query });
+      const aiMessage = { type: 'ai', content: data.answer };
+      setConversation(prev => [...prev, aiMessage]);
       setResponse(data.answer);
     } catch (err) {
       console.error(err);
+      const errorMessage = { type: 'ai', content: "I'm having trouble connecting right now. Please try again shortly." };
+      setConversation(prev => [...prev, errorMessage]);
       setResponse("Error fetching AI response.");
     } finally {
       setLoading(false);
+      setQuery("");
     }
   };
 
-  // 🧠 Automated market analysis using backend AI summarizer
-  const handleAnalyze = async () => {
-    if (!markets || markets.length === 0) {
-      setResponse("No market data available to analyze.");
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data } = await axios.post("http://localhost:5000/api/ai/query", { data: markets });
-      setResponse(data.answer);
-    } catch (err) {
-      console.error(err);
-      setResponse("Error analyzing market data.");
-    } finally {
-      setLoading(false);
-    }
+  // 🧠 Quick action buttons for common queries
+  const handleQuickQuestion = async (question) => {
+    setQuery(question);
+    // Small delay to show the question in input, then send
+    setTimeout(() => {
+      handleAsk();
+    }, 100);
+  };
+
+  // Clear conversation
+  const clearChat = () => {
+    setConversation([]);
+    setResponse("");
   };
 
   const buttonStyle = {
-    padding: '12px 24px',
+    padding: '10px 16px',
     borderRadius: '8px',
     border: 'none',
     fontWeight: '600',
-    fontSize: '1rem',
+    fontSize: '0.9rem',
     cursor: 'pointer',
-    transition: 'background-color 0.3s ease',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+    transition: 'all 0.3s ease',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
   };
 
   const askButtonStyle = {
     ...buttonStyle,
     backgroundColor: '#0F9E99',
-    color: 'white'
+    color: 'white',
+    flex: 1
   };
 
-  const analyzeButtonStyle = {
+  const quickActionStyle = {
     ...buttonStyle,
-    backgroundColor: '#E59B48',
-    color: '#4A2B1C'
+    backgroundColor: '#E0F2F1',
+    color: '#0F9E99',
+    border: '1px solid #0F9E99'
   };
 
   const disabledButtonStyle = {
@@ -70,119 +79,234 @@ export default function AIAssistant({ markets }) {
     opacity: 0.7
   };
 
+  const clearButtonStyle = {
+    ...buttonStyle,
+    backgroundColor: 'transparent',
+    color: '#98521F',
+    border: '1px solid #98521F',
+    fontSize: '0.8rem',
+    padding: '6px 12px'
+  };
+
   return (
     <div style={{
       backgroundColor: 'white',
       borderRadius: '16px',
       padding: '24px',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-      border: '1px solid #E0F2F1',
-      marginTop: '40px'
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+      border: '1px solid #E0F2F1'
     }}>
-      <h3 style={{
-        fontSize: '1.25rem',
-        fontWeight: '600',
-        color: '#0F9E99',
-        marginBottom: '16px'
-      }}>
-        🤖 Ask EventSense AI
-      </h3>
-
-      {/* Manual Query Section */}
+      {/* Header with Clear Option */}
       <div style={{
         display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: '20px'
       }}>
+        <h3 style={{
+          fontSize: '1.25rem',
+          fontWeight: '600',
+          color: '#0F9E99',
+          margin: 0
+        }}>
+          AI Assistant
+        </h3>
+        {conversation.length > 0 && (
+          <button
+            onClick={clearChat}
+            style={clearButtonStyle}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#FEF3C7'}
+            onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
+            Clear Chat
+          </button>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <div style={{ marginBottom: '20px' }}>
+        <p style={{
+          color: '#98521F',
+          fontSize: '0.875rem',
+          fontWeight: '500',
+          marginBottom: '12px'
+        }}>
+          Quick Questions:
+        </p>
         <div style={{
           display: 'flex',
-          gap: '12px',
           flexDirection: 'column',
-          sm: { flexDirection: 'row' }
+          gap: '8px'
         }}>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask about prediction trends, market analysis, or insights..."
-            style={{
-              flex: 1,
-              padding: '12px 16px',
-              border: '2px solid #E0F2F1',
-              backgroundColor: '#EFE9E0',
-              color: '#4A2B1C',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              outline: 'none'
-            }}
-            onFocus={(e) => e.target.style.borderColor = '#0F9E99'}
-            onBlur={(e) => e.target.style.borderColor = '#E0F2F1'}
-          />
           <button
-            onClick={handleAsk}
+            onClick={() => handleQuickQuestion("What are the most promising prediction markets right now?")}
             disabled={loading}
-            style={loading ? disabledButtonStyle : askButtonStyle}
-            onMouseOver={(e) => !loading && (e.target.style.backgroundColor = '#0C7F7A')}
-            onMouseOut={(e) => !loading && (e.target.style.backgroundColor = '#0F9E99')}
+            style={quickActionStyle}
+            onMouseOver={(e) => !loading && (e.target.style.backgroundColor = '#0F9E99', e.target.style.color = 'white')}
+            onMouseOut={(e) => !loading && (e.target.style.backgroundColor = '#E0F2F1', e.target.style.color = '#0F9E99')}
           >
-            {loading ? "Analyzing..." : "Ask AI"}
+            Most promising markets
+          </button>
+          <button
+            onClick={() => handleQuickQuestion("What crypto events should I watch for prediction opportunities?")}
+            disabled={loading}
+            style={quickActionStyle}
+            onMouseOver={(e) => !loading && (e.target.style.backgroundColor = '#0F9E99', e.target.style.color = 'white')}
+            onMouseOut={(e) => !loading && (e.target.style.backgroundColor = '#E0F2F1', e.target.style.color = '#0F9E99')}
+          >
+            Crypto event opportunities
+          </button>
+          <button
+            onClick={() => handleQuickQuestion("How do prediction market probabilities work?")}
+            disabled={loading}
+            style={quickActionStyle}
+            onMouseOver={(e) => !loading && (e.target.style.backgroundColor = '#0F9E99', e.target.style.color = 'white')}
+            onMouseOut={(e) => !loading && (e.target.style.backgroundColor = '#E0F2F1', e.target.style.color = '#0F9E99')}
+          >
+            How probabilities work
           </button>
         </div>
       </div>
 
-      {/* Automated Analysis Section */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'flex-end',
-        marginBottom: '16px'
-      }}>
-        <button
-          onClick={handleAnalyze}
-          disabled={loading || !markets || markets.length === 0}
-          style={loading || !markets || markets.length === 0 ? disabledButtonStyle : analyzeButtonStyle}
-          onMouseOver={(e) => !loading && markets && markets.length > 0 && (e.target.style.backgroundColor = '#D4892A')}
-          onMouseOut={(e) => !loading && markets && markets.length > 0 && (e.target.style.backgroundColor = '#E59B48')}
-        >
-          {loading ? "Analyzing Markets..." : "Analyze All Markets"}
-        </button>
-      </div>
-
-      {/* Response Display */}
-      {response && (
+      {/* Conversation History */}
+      {conversation.length > 0 && (
         <div style={{
-          backgroundColor: '#E0F2F1',
+          maxHeight: '300px',
+          overflowY: 'auto',
+          marginBottom: '20px',
           padding: '16px',
+          backgroundColor: '#F8FAFC',
           borderRadius: '8px',
-          color: '#4A2B1C',
-          border: '1px solid #0F9E99',
-          marginTop: '16px'
+          border: '1px solid #E5E7EB'
         }}>
-          <strong style={{ color: '#0F9E99' }}>AI Assistant:</strong> 
-          <span style={{ marginLeft: '8px' }}>{response}</span>
+          {conversation.map((msg, index) => (
+            <div
+              key={index}
+              style={{
+                marginBottom: '12px',
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: msg.type === 'user' ? '#E0F2F1' : 'white',
+                border: msg.type === 'user' ? '1px solid #0F9E99' : '1px solid #E5E7EB'
+              }}
+            >
+              <div style={{
+                fontWeight: '600',
+                color: msg.type === 'user' ? '#0F9E99' : '#E59B48',
+                fontSize: '0.8rem',
+                marginBottom: '4px'
+              }}>
+                {msg.type === 'user' ? 'You' : 'EventSense AI'}
+              </div>
+              <div style={{
+                color: '#4A2B1C',
+                fontSize: '0.9rem',
+                lineHeight: '1.4'
+              }}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div style={{
+              padding: '12px',
+              borderRadius: '8px',
+              backgroundColor: 'white',
+              border: '1px solid #E5E7EB',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                display: 'inline-block',
+                width: '20px',
+                height: '20px',
+                border: '2px solid #0F9E99',
+                borderTop: '2px solid transparent',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+                marginRight: '8px'
+              }}></div>
+              <span style={{ color: '#98521F', fontSize: '0.875rem' }}>
+                Analyzing...
+              </span>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Input Area */}
+      <div style={{
+        display: 'flex',
+        gap: '12px',
+        alignItems: 'flex-end'
+      }}>
+        <div style={{ flex: 1 }}>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Ask about specific markets, trading strategies, or analysis..."
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              border: '2px solid #E0F2F1',
+              backgroundColor: '#F8FAFC',
+              color: '#4A2B1C',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              outline: 'none'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#0F9E99'}
+            onBlur={(e) => e.target.style.borderColor = '#E0F2F1'}
+            onKeyPress={(e) => e.key === 'Enter' && !loading && handleAsk()}
+            disabled={loading}
+          />
+          <div style={{
+            fontSize: '0.75rem',
+            color: '#6B7280',
+            marginTop: '4px'
+          }}>
+            Press Enter to send
+          </div>
+        </div>
+        <button
+          onClick={handleAsk}
+          disabled={loading || !query.trim()}
+          style={loading || !query.trim() ? disabledButtonStyle : askButtonStyle}
+          onMouseOver={(e) => !loading && query.trim() && (e.target.style.backgroundColor = '#0C7F7A')}
+          onMouseOut={(e) => !loading && query.trim() && (e.target.style.backgroundColor = '#0F9E99')}
+        >
+          {loading ? "..." : "Ask"}
+        </button>
+      </div>
 
       {/* Info Text */}
       <div style={{
         marginTop: '16px',
         padding: '12px',
-        backgroundColor: '#FEF3C7',
+        backgroundColor: '#F0FDF4',
         borderRadius: '8px',
-        border: '1px solid #F59E0B'
+        border: '1px solid #BBF7D0'
       }}>
         <div style={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           gap: '8px',
-          color: '#92400E',
-          fontSize: '0.875rem'
+          color: '#166534',
+          fontSize: '0.8rem'
         }}>
           <span>💡</span>
-          <span>
-            <strong>Tip:</strong> Ask about specific markets or use "Analyze All Markets" for a comprehensive overview.
-          </span>
+          <div>
+            <strong>Pro Tip:</strong> Ask about specific market correlations, risk analysis, 
+            or how current news might affect prediction probabilities.
+          </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

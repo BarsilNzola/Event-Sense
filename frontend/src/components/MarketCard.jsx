@@ -1,8 +1,26 @@
-import { FaArrowUp, FaArrowDown } from "react-icons/fa";
+import { FaArrowUp, FaArrowDown, FaMinus } from "react-icons/fa";
 
 export default function MarketCard({ market }) {
-  const trendColor = market.trend === "up" ? "#10B981" : "#EF4444";
+  // Handle flat trend with a minus icon
+  const trendColor = market.trend === "up" ? "#10B981" : market.trend === "down" ? "#EF4444" : "#6B7280";
   const probabilityPercent = (market.probability * 100).toFixed(1);
+  
+  // Format volume/liquidity with better fallbacks
+  const formatVolume = (volume) => {
+    if (!volume && volume !== 0) return "$0";
+    if (volume >= 1000000) return `$${(volume / 1000000).toFixed(1)}M`;
+    if (volume >= 1000) return `$${(volume / 1000).toFixed(1)}K`;
+    return `$${volume.toFixed(0)}`;
+  };
+
+  // Get trend icon
+  const getTrendIcon = () => {
+    switch (market.trend) {
+      case "up": return <FaArrowUp />;
+      case "down": return <FaArrowDown />;
+      default: return <FaMinus />;
+    }
+  };
 
   return (
     <div style={{
@@ -11,7 +29,9 @@ export default function MarketCard({ market }) {
       padding: '24px',
       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
       border: '1px solid #E0F2F1',
-      transition: 'all 0.3s ease'
+      transition: 'all 0.3s ease',
+      height: 'fit-content',
+      minHeight: '320px'
     }}>
       {/* Header */}
       <div style={{
@@ -39,7 +59,7 @@ export default function MarketCard({ market }) {
           fontWeight: '600',
           fontSize: '0.875rem'
         }}>
-          {market.trend === "up" ? <FaArrowUp /> : <FaArrowDown />}
+          {getTrendIcon()}
           {market.change}%
         </div>
       </div>
@@ -105,7 +125,7 @@ export default function MarketCard({ market }) {
             color: '#4A2B1C',
             fontSize: '0.875rem'
           }}>
-            ${(market.volume / 1000000).toFixed(1)}M
+            {formatVolume(market.volume)}
           </div>
         </div>
         <div style={{
@@ -127,7 +147,7 @@ export default function MarketCard({ market }) {
             color: '#4A2B1C',
             fontSize: '0.875rem'
           }}>
-            ${(market.liquidity / 1000).toFixed(0)}K
+            {formatVolume(market.liquidity)}
           </div>
         </div>
       </div>
@@ -138,7 +158,8 @@ export default function MarketCard({ market }) {
         justifyContent: 'space-between',
         alignItems: 'center',
         fontSize: '0.875rem',
-        color: '#98521F'
+        color: '#98521F',
+        marginBottom: '8px'
       }}>
         <span>24h Change</span>
         <span style={{ 
@@ -149,8 +170,23 @@ export default function MarketCard({ market }) {
         </span>
       </div>
 
+      {/* Last Updated */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        fontSize: '0.75rem',
+        color: '#6B7280',
+        marginBottom: '16px'
+      }}>
+        <span>Updated</span>
+        <span>
+          {market.updated ? new Date(market.updated).toLocaleTimeString() : 'Recently'}
+        </span>
+      </div>
+
       {/* Category */}
-      {market.category && (
+      {market.category && market.category !== 'General' && (
         <div style={{
           marginTop: '16px',
           paddingTop: '16px',

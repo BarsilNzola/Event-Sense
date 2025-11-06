@@ -87,9 +87,10 @@ export class PythService {
               const price = feed.getPriceUnchecked();
               const symbol = this.getSymbolFromPriceId(feed.id);
               
-              // Handle undefined values with defaults
+              // Handle undefined values with sensible defaults
               const exponent = price.exponent !== undefined ? price.exponent : -8;
-              const confidence = price.confidence !== undefined ? price.confidence : 0;
+              const confidence = price.confidence !== undefined ? price.confidence : 
+                                price.price * 0.001; // Default to 0.1% of price
               
               console.log(`💰 Processing ${symbol}:`, {
                 price: price.price,
@@ -207,7 +208,7 @@ export class PythService {
   // Start periodic price updates
   startPriceUpdates() {
     if (this.useMock) return;
-
+  
     setInterval(async () => {
       try {
         const priceIds = Object.values(PYTH_PRICE_IDS);
@@ -217,21 +218,26 @@ export class PythService {
           const price = feed.getPriceUnchecked();
           const symbol = this.getSymbolFromPriceId(feed.id);
           
+          // Use the same logic as in initialize
+          const exponent = price.exponent !== undefined ? price.exponent : -8;
+          const confidence = price.confidence !== undefined ? price.confidence : 
+                            price.price * 0.001;
+          
           this.priceFeeds.set(symbol, {
             price: price.price,
-            confidence: price.confidence,
-            exponent: price.exponent,
+            confidence: confidence,
+            exponent: exponent,
             timestamp: price.publishTime,
             symbol: symbol,
             isMock: false
           });
         });
-
+  
         console.log('🔄 Pyth prices updated');
       } catch (error) {
         console.error('❌ Pyth price update failed:', error);
       }
-    }, 30000); // Update every 30 seconds
+    }, 30000);
   }
 
   // Get current price for a symbol
@@ -246,7 +252,15 @@ export class PythService {
       // Use the exponent from the feed (with default fallback)
       const exponent = feed.exponent !== undefined ? feed.exponent : -8;
       const actualPrice = Number(feed.price) * Math.pow(10, exponent);
-      const confidenceInterval = Number(feed.confidence) * Math.pow(10, exponent);
+      
+      // Calculate confidence with proper fallback
+      let confidenceInterval;
+      if (feed.confidence !== undefined && feed.confidence !== null) {
+        confidenceInterval = Number(feed.confidence) * Math.pow(10, exponent);
+      } else {
+        // Default confidence: 0.1% of the price
+        confidenceInterval = actualPrice * 0.001;
+      }
   
       const priceData = {
         symbol,
