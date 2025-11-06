@@ -21,16 +21,53 @@ export default function WalletConnect({ onConnect }) {
     }
   }, [isConnected, address, onConnect]);
 
+  const buttonStyle = {
+    backgroundColor: '#0F9E99',
+    color: 'white',
+    padding: '12px 24px',
+    borderRadius: '12px',
+    border: 'none',
+    fontWeight: '600',
+    fontSize: '1rem',
+    cursor: 'pointer',
+    transition: 'background-color 0.3s ease',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+  };
+
+  const disconnectButtonStyle = {
+    ...buttonStyle,
+    backgroundColor: '#EF4444',
+    padding: '8px 16px',
+    fontSize: '0.875rem'
+  };
+
+  const connectedStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    backgroundColor: 'white',
+    padding: '12px 16px',
+    borderRadius: '12px',
+    border: '1px solid #E0F2F1',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+  };
+
   return (
-    <div className="flex justify-end items-center">
+    <div>
       {isConnected && address ? (
-        <div className="flex items-center gap-3 bg-white rounded-xl shadow-sm px-4 py-2 border border-lightTeal">
-          <span className="text-gray-700 text-sm font-mono">
+        <div style={connectedStyle}>
+          <span style={{ 
+            color: '#4A2B1C',
+            fontSize: '0.875rem',
+            fontFamily: 'monospace'
+          }}>
             {address.slice(0, 6)}...{address.slice(-4)}
           </span>
           <button
             onClick={disconnect}
-            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg font-semibold text-sm transition"
+            style={disconnectButtonStyle}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#DC2626'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#EF4444'}
           >
             Disconnect
           </button>
@@ -38,7 +75,9 @@ export default function WalletConnect({ onConnect }) {
       ) : (
         <button
           onClick={handleConnect}
-          className="bg-tropicalTeal hover:bg-darkTeal text-white px-4 py-2 rounded-xl font-semibold shadow-sm transition"
+          style={buttonStyle}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#0C7F7A'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#0F9E99'}
         >
           Connect Wallet
         </button>

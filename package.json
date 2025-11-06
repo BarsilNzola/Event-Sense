@@ -5,6 +5,10 @@
     "dev:frontend": "cd frontend && npm run dev"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.16",
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "@pythnetwork/client": "^2.22.1"
   }
 }

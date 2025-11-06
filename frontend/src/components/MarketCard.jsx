@@ -1,66 +1,169 @@
 import { FaArrowUp, FaArrowDown } from "react-icons/fa";
-import MarketChart from "./MarketChart";
 
 export default function MarketCard({ market }) {
-  const trendColor = market.trend === "up" ? "text-green-600" : "text-red-600";
+  const trendColor = market.trend === "up" ? "#10B981" : "#EF4444";
+  const probabilityPercent = (market.probability * 100).toFixed(1);
 
   return (
-    <div className="bg-white rounded-2xl shadow-md border border-lightTeal p-6 hover:shadow-lg transition duration-300">
+    <div style={{
+      backgroundColor: 'white',
+      borderRadius: '16px',
+      padding: '24px',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+      border: '1px solid #E0F2F1',
+      transition: 'all 0.3s ease'
+    }}>
       {/* Header */}
-      <div className="flex justify-between items-start mb-4">
-        <h2 className="text-lg font-bold text-duneDark leading-snug flex-1 mr-4">
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: '20px'
+      }}>
+        <h3 style={{
+          fontSize: '1.125rem',
+          fontWeight: 'bold',
+          color: '#4A2B1C',
+          lineHeight: '1.4',
+          flex: 1,
+          marginRight: '16px'
+        }}>
           {market.question}
-        </h2>
+        </h3>
 
-        <div className={`flex items-center gap-1 text-sm font-semibold ${trendColor}`}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          color: trendColor,
+          fontWeight: '600',
+          fontSize: '0.875rem'
+        }}>
           {market.trend === "up" ? <FaArrowUp /> : <FaArrowDown />}
           {market.change}%
         </div>
       </div>
 
       {/* Probability Display */}
-      <div className="mb-4">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-gray-600">Probability</span>
-          <span className="text-xl font-bold text-tropicalTeal">
-            {(market.probability * 100).toFixed(1)}%
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '8px'
+        }}>
+          <span style={{ color: '#98521F', fontSize: '0.875rem' }}>Probability</span>
+          <span style={{
+            fontSize: '1.25rem',
+            fontWeight: 'bold',
+            color: '#0F9E99'
+          }}>
+            {probabilityPercent}%
           </span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div style={{
+          width: '100%',
+          backgroundColor: '#E5E7EB',
+          borderRadius: '9999px',
+          height: '8px'
+        }}>
           <div 
-            className="bg-tropicalTeal h-2 rounded-full transition-all duration-500"
-            style={{ width: `${market.probability * 100}%` }}
+            style={{
+              backgroundColor: '#0F9E99',
+              height: '8px',
+              borderRadius: '9999px',
+              transition: 'width 0.5s ease',
+              width: `${probabilityPercent}%`
+            }}
           ></div>
         </div>
       </div>
 
-      {/* Chart */}
-      {market.history && (
-        <div className="mt-4 mb-4">
-          <MarketChart data={market.history} />
-        </div>
-      )}
-
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
-        <div className="text-center p-3 bg-lightTeal rounded-lg">
-          <div className="text-gray-600 text-xs">Volume</div>
-          <div className="font-semibold text-duneDark">
-            ${market.volume?.toLocaleString() || "0"}
+      {/* Stats Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '12px',
+        marginBottom: '16px'
+      }}>
+        <div style={{
+          textAlign: 'center',
+          padding: '12px',
+          backgroundColor: '#E0F2F1',
+          borderRadius: '8px'
+        }}>
+          <div style={{
+            color: '#98521F',
+            fontSize: '0.75rem',
+            fontWeight: '500',
+            marginBottom: '4px'
+          }}>
+            Volume
+          </div>
+          <div style={{
+            fontWeight: '600',
+            color: '#4A2B1C',
+            fontSize: '0.875rem'
+          }}>
+            ${(market.volume / 1000000).toFixed(1)}M
           </div>
         </div>
-        <div className="text-center p-3 bg-lightTeal rounded-lg">
-          <div className="text-gray-600 text-xs">Liquidity</div>
-          <div className="font-semibold text-duneDark">
-            ${market.liquidity?.toLocaleString() || "0"}
+        <div style={{
+          textAlign: 'center',
+          padding: '12px',
+          backgroundColor: '#E0F2F1',
+          borderRadius: '8px'
+        }}>
+          <div style={{
+            color: '#98521F',
+            fontSize: '0.75rem',
+            fontWeight: '500',
+            marginBottom: '4px'
+          }}>
+            Liquidity
+          </div>
+          <div style={{
+            fontWeight: '600',
+            color: '#4A2B1C',
+            fontSize: '0.875rem'
+          }}>
+            ${(market.liquidity / 1000).toFixed(0)}K
           </div>
         </div>
       </div>
 
+      {/* Additional Info */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        fontSize: '0.875rem',
+        color: '#98521F'
+      }}>
+        <span>24h Change</span>
+        <span style={{ 
+          fontWeight: '600',
+          color: trendColor
+        }}>
+          {market.change}%
+        </span>
+      </div>
+
       {/* Category */}
       {market.category && (
-        <div className="mt-4 text-center">
-          <span className="inline-block bg-tropicalTeal text-white text-xs px-3 py-1 rounded-full">
+        <div style={{
+          marginTop: '16px',
+          paddingTop: '16px',
+          borderTop: '1px solid #E5E7EB'
+        }}>
+          <span style={{
+            display: 'inline-block',
+            backgroundColor: '#0F9E99',
+            color: 'white',
+            fontSize: '0.75rem',
+            padding: '4px 12px',
+            borderRadius: '9999px'
+          }}>
             {market.category}
           </span>
         </div>
@@ -68,12 +171,24 @@ export default function MarketCard({ market }) {
 
       {/* IPFS Link */}
       {market.cid && (
-        <div className="text-xs text-gray-500 mt-4 border-t pt-3 text-center">
+        <div style={{
+          marginTop: '16px',
+          paddingTop: '16px',
+          borderTop: '1px solid #E5E7EB',
+          textAlign: 'center'
+        }}>
           <a
             href={`https://gateway.lighthouse.storage/ipfs/${market.cid}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-tropicalTeal hover:text-darkTeal hover:underline"
+            style={{
+              color: '#0F9E99',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              textDecoration: 'none'
+            }}
+            onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+            onMouseOut={(e) => e.target.style.textDecoration = 'none'}
           >
             View on IPFS ↗
           </a>

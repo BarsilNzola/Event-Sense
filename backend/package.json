@@ -10,12 +10,16 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@pythnetwork/client": "^2.22.1",
+    "@pythnetwork/pyth-common-js": "^1.4.0",
     "@supabase/supabase-js": "^2.76.1",
     "axios": "^1.12.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "ethers": "^6.15.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "viem": "^2.38.6"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
