@@ -7,7 +7,7 @@ import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 
 // Get WalletConnect Project ID from environment variables
-const walletConnectProjectId = process.env.VITE_WALLETCONNECT_PROJECT_ID;
+const walletConnectProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
 
 // Configure Wagmi with multiple connectors
 const config = createConfig({

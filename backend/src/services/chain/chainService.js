@@ -18,11 +18,10 @@ const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
 if (!RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
   console.warn("⚠️ Missing RPC/PRIVATE_KEY/CONTRACT_ADDRESS in .env for chainService");
-  // Don't throw error here, let individual functions handle it
 }
 
 // Read the ABI file directly
-const contractPath = path.resolve(__dirname, "../../../smart-contracts/artifacts/contracts/EventSenseStorage.sol/EventSenseStorage.json");
+const contractPath = path.resolve(__dirname, "../../../../smart-contracts/artifacts/contracts/EventSenseStorage.sol/EventSenseStorage.json");
 let EventSenseStorageArtifact;
 let provider, wallet, contract;
 
@@ -62,19 +61,35 @@ export const storeCIDOnChain = async (cid) => {
     
     const receipt = await tx.wait();
     console.log("✅ Tx mined in block:", receipt.blockNumber);
+    console.log("🔍 Receipt details:", {
+      hash: receipt.hash,
+      transactionHash: receipt.transactionHash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed?.toString()
+    });
     
     // Get the transaction timestamp from the block
     const block = await provider.getBlock(receipt.blockNumber);
     const timestamp = block.timestamp;
     
-    return { 
+    // Use receipt.hash as the primary transaction hash
+    const txHash = receipt.hash || receipt.transactionHash;
+    
+    if (!txHash) {
+      console.warn("⚠️ No transaction hash found in receipt, using tx.hash");
+    }
+    
+    const result = { 
       success: true,
-      txHash: receipt.transactionHash, 
+      txHash: txHash || tx.hash, // Fallback to original tx hash
       blockNumber: receipt.blockNumber,
       timestamp: new Date(timestamp * 1000).toISOString(),
       cid,
-      gasUsed: receipt.gasUsed.toString()
+      gasUsed: receipt.gasUsed?.toString() || '0'
     };
+
+    console.log("✅ Blockchain storage completed:", result);
+    return result;
     
   } catch (err) {
     console.error("❌ Error storing CID on chain:", err);

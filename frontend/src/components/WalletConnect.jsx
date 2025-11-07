@@ -1,83 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useConnect, useAccount, useDisconnect } from "wagmi";
-import { MetaMaskConnector } from "wagmi/connectors/metaMask";
-import { WalletConnectConnector } from "wagmi/connectors/walletConnect";
-import { CoinbaseWalletConnector } from "wagmi/connectors/coinbaseWallet";
 
 export default function WalletConnect({ onConnect }) {
   const { connect, connectors, error } = useConnect();
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const [detectedWallets, setDetectedWallets] = useState([]);
   const [showWalletOptions, setShowWalletOptions] = useState(false);
-
-  // Detect installed wallets
-  useEffect(() => {
-    const wallets = [];
-    
-    // Check for MetaMask
-    if (window.ethereum?.isMetaMask) {
-      wallets.push({
-        id: "metaMask",
-        name: "MetaMask",
-        icon: "🦊",
-        connector: new MetaMaskConnector()
-      });
-    }
-    
-    // Check for Coinbase Wallet
-    if (window.ethereum?.isCoinbaseWallet) {
-      wallets.push({
-        id: "coinbaseWallet",
-        name: "Coinbase Wallet",
-        icon: "⚡",
-        connector: new CoinbaseWalletConnector({
-          options: {
-            appName: "EventSense",
-          }
-        })
-      });
-    }
-    
-    // Check for other injected wallets (Trust Wallet, Rainbow, etc.)
-    if (window.ethereum && !window.ethereum.isMetaMask && !window.ethereum.isCoinbaseWallet) {
-      wallets.push({
-        id: "injected",
-        name: "Browser Wallet",
-        icon: "🌐",
-        connector: new MetaMaskConnector() // Use MetaMask connector for generic injected
-      });
-    }
-    
-    // Always include WalletConnect as an option
-    wallets.push({
-      id: "walletConnect",
-      name: "WalletConnect",
-      icon: "🔗",
-      connector: new WalletConnectConnector({
-        options: {
-          projectId: process.env.VITE_WALLETCONNECT_PROJECT_ID, // Make sure this is set
-          showQrModal: true,
-        }
-      })
-    });
-    
-    setDetectedWallets(wallets);
-  }, []);
 
   const handleWalletConnect = (connector) => {
     connect({ connector });
     setShowWalletOptions(false);
-  };
-
-  const handleConnect = () => {
-    if (detectedWallets.length === 1) {
-      // If only one wallet detected, connect directly
-      handleWalletConnect(detectedWallets[0].connector);
-    } else {
-      // Show wallet options
-      setShowWalletOptions(true);
-    }
   };
 
   useEffect(() => {
@@ -85,6 +17,24 @@ export default function WalletConnect({ onConnect }) {
       onConnect(isConnected ? { address } : null);
     }
   }, [isConnected, address, onConnect]);
+
+  // Get connector display names and icons
+  const getConnectorInfo = (connector) => {
+    switch (connector.id) {
+      case 'metaMask':
+        return { name: 'MetaMask', icon: '🦊' };
+      case 'io.metamask':
+        return { name: 'MetaMask', icon: '🦊' };
+      case 'coinbaseWalletSDK':
+        return { name: 'Coinbase Wallet', icon: '⚡' };
+      case 'walletConnect':
+        return { name: 'WalletConnect', icon: '🔗' };
+      case 'injected':
+        return { name: 'Browser Wallet', icon: '🌐' };
+      default:
+        return { name: connector.name || 'Wallet', icon: '🔗' };
+    }
+  };
 
   const buttonStyle = {
     backgroundColor: '#0F9E99',
@@ -192,7 +142,7 @@ export default function WalletConnect({ onConnect }) {
       ) : (
         <>
           <button
-            onClick={handleConnect}
+            onClick={() => setShowWalletOptions(true)}
             style={buttonStyle}
             onMouseOver={(e) => e.target.style.backgroundColor = '#0C7F7A'}
             onMouseOut={(e) => e.target.style.backgroundColor = '#0F9E99'}
@@ -239,40 +189,35 @@ export default function WalletConnect({ onConnect }) {
                     Choose your wallet:
                   </p>
                   
-                  {detectedWallets.map((wallet) => (
-                    <button
-                      key={wallet.id}
-                      onClick={() => handleWalletConnect(wallet.connector)}
-                      style={walletOptionStyle}
-                      onMouseOver={(e) => {
-                        e.target.style.borderColor = '#0F9E99';
-                        e.target.style.backgroundColor = '#F0FDF4';
-                      }}
-                      onMouseOut={(e) => {
-                        e.target.style.borderColor = '#E0F2F1';
-                        e.target.style.backgroundColor = 'white';
-                      }}
-                    >
-                      <span style={{ fontSize: '1.5rem' }}>{wallet.icon}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{
-                          fontWeight: '600',
-                          color: '#4A2B1C',
-                          fontSize: '1rem'
-                        }}>
-                          {wallet.name}
-                        </div>
-                        {wallet.id === 'injected' && (
+                  {connectors.map((connector) => {
+                    const { name, icon } = getConnectorInfo(connector);
+                    return (
+                      <button
+                        key={connector.uid}
+                        onClick={() => handleWalletConnect(connector)}
+                        style={walletOptionStyle}
+                        onMouseOver={(e) => {
+                          e.target.style.borderColor = '#0F9E99';
+                          e.target.style.backgroundColor = '#F0FDF4';
+                        }}
+                        onMouseOut={(e) => {
+                          e.target.style.borderColor = '#E0F2F1';
+                          e.target.style.backgroundColor = 'white';
+                        }}
+                      >
+                        <span style={{ fontSize: '1.5rem' }}>{icon}</span>
+                        <div style={{ flex: 1 }}>
                           <div style={{
-                            color: '#6B7280',
-                            fontSize: '0.75rem'
+                            fontWeight: '600',
+                            color: '#4A2B1C',
+                            fontSize: '1rem'
                           }}>
-                            Detected in your browser
+                            {name}
                           </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {error && (

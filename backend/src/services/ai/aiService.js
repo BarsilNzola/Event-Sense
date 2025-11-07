@@ -215,42 +215,170 @@ Keep the response professional, insightful, and easy to understand. Focus on the
 };
 
 export const generateComprehensiveAnalysis = async (priceData, marketData, newsData) => {
-  // Try direct Gemini API first with a proper prompt
+  // Validate and format data first
+  const formattedData = formatDataForAI(priceData, marketData, newsData);
+  
+  if (!formattedData.hasValidData) {
+    return generateEnhancedFallback(priceData, marketData, newsData);
+  }
+
   try {
-    console.log('🔄 Attempting direct Gemini API call...');
+    console.log('🔄 Attempting Gemini API with formatted data...');
     
-    const cryptoCount = Object.keys(priceData || {}).length;
-    const marketCount = Array.isArray(marketData) ? marketData.length : 0;
-    const newsCount = Array.isArray(newsData) ? newsData.length : 0;
-    
-    // Create a simple but meaningful prompt
-    const prompt = `Provide a brief market analysis based on: ${cryptoCount} cryptocurrency prices, ${marketCount} prediction markets, and ${newsCount} news articles. Focus on current trends and short-term outlook.`;
-    
-    console.log('📝 Prompt for Gemini:', prompt);
+    const prompt = createAIPrompt(formattedData);
+    console.log('📝 AI Prompt with actual data:', prompt.substring(0, 200) + '...');
     
     const geminiResult = await testDirectGeminiAPI(prompt);
     
-    // Check if we got a valid response
-    if (geminiResult.candidates && geminiResult.candidates[0] && geminiResult.candidates[0].content) {
+    if (geminiResult.candidates?.[0]?.content?.parts?.[0]?.text) {
       const geminiText = geminiResult.candidates[0].content.parts[0].text;
       if (geminiText && geminiText.length > 10) {
-        console.log('✅ Direct Gemini API successful:', geminiText.substring(0, 100) + '...');
+        console.log('✅ Gemini analysis successful');
         return geminiText;
       }
     }
     
-    console.log('❌ Direct Gemini API returned invalid response, using enhanced analysis');
+    throw new Error('Invalid response from Gemini');
     
   } catch (error) {
-    console.error('❌ Direct Gemini API failed:', error.message);
+    console.error('❌ Gemini analysis failed:', error.message);
+    return generateEnhancedFallback(priceData, marketData, newsData);
   }
-  
-  // Fall back to our enhanced analysis
-  console.log('🔄 Using enhanced analysis with AI-style formatting');
-  return generateEnhancedFallback(priceData, marketData, newsData);
 };
 
-// Direct API call to Gemini
+// Helper function to format data for AI
+function formatDataForAI(priceData, marketData, newsData) {
+  const cryptoData = priceData || {};
+  const markets = Array.isArray(marketData) ? marketData : [];
+  const news = Array.isArray(newsData) ? newsData : [];
+  
+  // Extract actual values from price data
+  const cryptoDetails = Object.entries(cryptoData).map(([symbol, data]) => {
+    return {
+      symbol: symbol,
+      price: data.price || data.currentPrice || data.last || 0,
+      change24h: data.change24h || data.changePercentage || data.priceChange24h || data.change || 0,
+      volume: data.volume || 0
+    };
+  }).filter(crypto => crypto.price > 0);
+
+  // Extract actual values from market data
+  const marketDetails = markets.map(market => {
+    return {
+      question: market.question || market.title || market.name || 'Unknown Market',
+      probability: market.probability || market.currentProbability || market.estimation || 0,
+      trend: market.trend || 'flat',
+      volume: market.volume || 0,
+      change: market.change || market.priceChange || 0
+    };
+  }).filter(market => market.probability > 0);
+
+  // Extract news highlights with better field detection
+  const newsHighlights = news.map(item => {
+    // Handle different news data structures
+    const title = item.title || item.headline || item.name || item.description || 'No title';
+    const sentiment = item.sentiment || item.mood || item.tone || 'neutral';
+    const impact = item.impact || item.importance || item.significance || 'medium';
+    
+    return {
+      title: title.length > 100 ? title.substring(0, 100) + '...' : title,
+      sentiment: sentiment,
+      impact: impact,
+      source: item.source || item.publisher || 'Unknown'
+    };
+  }).filter(newsItem => newsItem.title !== 'No title') // Remove invalid news
+    .slice(0, 5); // Limit to top 5 news items
+
+  console.log(`✅ Formatted ${newsHighlights.length} news items from ${news.length} total`);
+
+  return {
+    hasValidData: cryptoDetails.length > 0 || marketDetails.length > 0 || newsHighlights.length > 0,
+    crypto: cryptoDetails,
+    markets: marketDetails,
+    news: newsHighlights,
+    summary: {
+      totalCryptos: cryptoDetails.length,
+      totalMarkets: marketDetails.length,
+      totalNews: newsHighlights.length,
+      avgProbability: marketDetails.length > 0 
+        ? (marketDetails.reduce((sum, m) => sum + m.probability, 0) / marketDetails.length * 100).toFixed(1)
+        : 0,
+      bullishMarkets: marketDetails.filter(m => m.trend === 'up').length,
+      bearishMarkets: marketDetails.filter(m => m.trend === 'down').length,
+      positiveNews: newsHighlights.filter(n => n.sentiment === 'positive').length,
+      negativeNews: newsHighlights.filter(n => n.sentiment === 'negative').length
+    }
+  };
+}
+
+// Create a detailed prompt with actual data
+function createAIPrompt(formattedData) {
+  const { crypto, markets, news, summary } = formattedData;
+  
+  let prompt = `You are EventSense AI, an expert analyst for cryptocurrency and prediction markets. Analyze this REAL market data and provide insights:
+
+`;
+
+  // Crypto section - only show if we have data
+  if (summary.totalCryptos > 0) {
+    prompt += `CRYPTO PRICE DATA (${summary.totalCryptos} assets):\n`;
+    crypto.slice(0, 10).forEach(c => {
+      prompt += `- ${c.symbol}: $${c.price.toFixed(2)} (${c.change24h > 0 ? '+' : ''}${c.change24h.toFixed(2)}%)\n`;
+    });
+    prompt += '\n';
+  } else {
+    prompt += `CRYPTO PRICE DATA: No current price data available\n\n`;
+  }
+
+  // Markets section
+  prompt += `PREDICTION MARKETS (${summary.totalMarkets} markets):\n`;
+  if (summary.totalMarkets > 0) {
+    markets.slice(0, 10).forEach(m => {
+      const probPercent = (m.probability * 100).toFixed(1);
+      const trendIcon = m.trend === 'up' ? '↗️' : m.trend === 'down' ? '↘️' : '➡️';
+      prompt += `- ${trendIcon} ${m.question}: ${probPercent}% probability\n`;
+    });
+  } else {
+    prompt += `- No market probability data available\n`;
+  }
+  prompt += '\n';
+
+  // ALWAYS show news section, even if empty
+  prompt += `RECENT NEWS & EVENTS (${summary.totalNews} items):\n`;
+  if (summary.totalNews > 0) {
+    news.forEach((n, index) => {
+      const sentimentIcon = n.sentiment === 'positive' ? '📈' : n.sentiment === 'negative' ? '📉' : '📊';
+      prompt += `- ${sentimentIcon} ${n.title}\n`;
+    });
+    
+    // Add news sentiment summary
+    if (summary.positiveNews > 0 || summary.negativeNews > 0) {
+      prompt += `News Sentiment: ${summary.positiveNews} positive, ${summary.negativeNews} negative, ${summary.totalNews - summary.positiveNews - summary.negativeNews} neutral\n`;
+    }
+  } else {
+    prompt += `- No recent news data available\n`;
+  }
+  prompt += '\n';
+
+  prompt += `MARKET SUMMARY:
+- ${summary.totalCryptos} cryptocurrencies tracked
+- ${summary.totalMarkets} prediction markets (${summary.bullishMarkets} bullish, ${summary.bearishMarkets} bearish)
+- ${summary.totalNews} news items analyzed
+- Average prediction probability: ${summary.avgProbability}%
+${summary.totalNews > 0 ? `- News sentiment: ${summary.positiveNews} positive, ${summary.negativeNews} negative` : ''}
+
+Please provide a concise 3-4 sentence analysis focusing on:
+1. Current market sentiment based on ACTUAL data above
+2. Key trends in prediction market probabilities
+3. Notable correlations between crypto prices, prediction markets, and news sentiment
+4. Short-term outlook based on the combined data
+
+Be specific about the actual numbers and trends shown in the data.`;
+
+  return prompt;
+}
+
+// Also update your testDirectGeminiAPI function to handle longer responses:
 export const testDirectGeminiAPI = async (prompt) => {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error('No API key');
@@ -272,7 +400,7 @@ export const testDirectGeminiAPI = async (prompt) => {
           }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 200, // Increased slightly
+            maxOutputTokens: 500, // Increased for more detailed analysis
             topP: 0.8
           }
         })
@@ -280,7 +408,8 @@ export const testDirectGeminiAPI = async (prompt) => {
     );
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
