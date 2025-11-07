@@ -5,7 +5,7 @@ class PolymarketService {
     this.cache = null;
     this.lastUpdated = null;
     this.isUpdating = false;
-    this.updateInterval = 60 * 60 * 1000; // 1 hour
+    this.updateInterval = 15 * 60 * 1000; // 1 hour
   }
 
   // Main method to get market data (with caching)

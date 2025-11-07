@@ -7,164 +7,185 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-console.log('Current directory:', __dirname);
-console.log('Looking for .env at:', path.resolve(__dirname, '../../../../.env'));
-
 // Load .env from root directory
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
-console.log('GEMINI_API_KEY in aiService:', process.env.GEMINI_API_KEY ? 'SET' : 'NOT SET');
+console.log('=== AI SERVICE INITIALIZATION ===');
+console.log('GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? `SET (length: ${process.env.GEMINI_API_KEY.length})` : 'NOT SET');
 
-// Initialize Gemini
-let genAI = null;
-let availableModel = null;
-let modelInitialized = false;
+// Simple Gemini initialization
+let geminiClient = null;
+let availableModel = "gemini-2.5-flash"; // Directly use the model you specified
 
-// Initialize Gemini AI (called on first use)
-async function initializeGemini() {
-  if (modelInitialized) return;
+// Direct test function
+export const testGeminiConnection = async () => {
+  console.log('🧪 Testing Gemini connection...');
   
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      console.log("Gemini AI initialized successfully");
-      
-      // Test available models
-      await initializeModel();
-      modelInitialized = true;
-    } catch (err) {
-      console.error("Gemini initialization failed:", err.message);
-      genAI = null;
-      modelInitialized = true;
-    }
-  } else {
-    console.log("GEMINI_API_KEY not set; using local fallback only");
-    modelInitialized = true;
+  if (!process.env.GEMINI_API_KEY) {
+    return { success: false, error: 'GEMINI_API_KEY not found in environment' };
   }
-}
 
-async function initializeModel() {
-  if (!genAI) return;
-  
   try {
-    // Try to list available models first
-    console.log('Fetching available models...');
-    const models = await genAI.listModels();
-    console.log('Available models:', models.map(m => m.name));
+    console.log('1. Creating GoogleGenerativeAI instance...');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     
-    // Try different model names in order of preference
-    const modelCandidates = [
-      "gemini-pro",
-      "models/gemini-pro",
-      "gemini-1.0-pro",
-      "gemini-1.5-flash",
-      "gemini-1.5-pro"
-    ];
+    console.log(`2. Testing model: ${availableModel}`);
+    const model = genAI.getGenerativeModel({ 
+      model: availableModel,
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 10,
+      }
+    });
     
-    for (const modelName of modelCandidates) {
+    console.log('3. Generating test content...');
+    const result = await model.generateContent("Say 'OK'");
+    const response = await result.response;
+    const text = response.text();
+    
+    console.log(`✅ Model ${availableModel} works! Response: ${text}`);
+    geminiClient = genAI;
+    
+    return { 
+      success: true, 
+      response: text,
+      model: availableModel
+    };
+    
+  } catch (error) {
+    console.error('❌ Gemini test failed:', error.message);
+    
+    // If gemini-2.5-flash fails, try gemini-2.0-flash as fallback
+    if (error.message.includes('not found') || error.message.includes('404')) {
+      console.log('🔄 Trying gemini-2.0-flash as fallback...');
       try {
-        console.log(`Testing model: ${modelName}`);
-        // Test if model exists by making a simple request
-        const model = genAI.getGenerativeModel({ model: modelName });
-        // Test with a very simple prompt
-        const testResult = await model.generateContent("Hello");
-        await testResult.response;
-        availableModel = modelName;
-        console.log(`✅ Using model: ${availableModel}`);
-        break;
-      } catch (error) {
-        console.log(`❌ Model ${modelName} not available: ${error.message}`);
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const fallbackModel = "gemini-2.0-flash";
+        const model = genAI.getGenerativeModel({ 
+          model: fallbackModel,
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 10,
+          }
+        });
+        
+        const result = await model.generateContent("Say 'OK'");
+        const response = await result.response;
+        const text = response.text();
+        
+        console.log(`✅ Fallback model ${fallbackModel} works! Response: ${text}`);
+        availableModel = fallbackModel;
+        geminiClient = genAI;
+        
+        return { 
+          success: true, 
+          response: text,
+          model: fallbackModel
+        };
+      } catch (fallbackError) {
+        console.error('❌ Fallback model also failed:', fallbackError.message);
       }
     }
     
-    if (!availableModel) {
-      console.log("No compatible Gemini models found. Using fallback mode.");
-      genAI = null;
-    }
-  } catch (error) {
-    console.error("Error detecting models:", error.message);
-    genAI = null;
+    return { 
+      success: false, 
+      error: error.message,
+      code: error.code,
+      status: error.status
+    };
   }
+};
+
+// Initialize on import
+let initializationPromise = null;
+
+async function initializeGemini() {
+  if (initializationPromise) return initializationPromise;
+  
+  initializationPromise = (async () => {
+    console.log('🚀 Initializing Gemini...');
+    
+    const testResult = await testGeminiConnection();
+    
+    if (testResult.success) {
+      console.log('✅ Gemini initialized successfully with model:', availableModel);
+      return true;
+    } else {
+      console.log('❌ Gemini initialization failed:', testResult.error);
+      geminiClient = null;
+      return false;
+    }
+  })();
+  
+  return initializationPromise;
 }
 
-export const generateComprehensiveAnalysis = async (priceData, marketData, newsData) => {
-  // Initialize on first use
-  if (!modelInitialized) {
-    await initializeGemini();
+// Start initialization immediately
+initializeGemini().then(success => {
+  console.log('🎯 Gemini initialization completed:', success);
+});
+
+export const generateAIResponse = async (question) => {
+  console.log('🤖 generateAIResponse called with:', question.substring(0, 50) + '...');
+  
+  // Wait for initialization to complete
+  const initialized = await initializeGemini();
+  
+  if (!initialized || !geminiClient) {
+    console.log('🔴 Using fallback - Gemini not available');
+    return "I'm currently analyzing prediction market trends. For detailed insights, check the market cards above.";
   }
 
   try {
-    if (!genAI || !availableModel) {
-      console.log('Gemini not available, using fallback for comprehensive analysis');
-      return generateFallbackAnalysis(priceData, marketData, newsData);
-    }
-
-    console.log(`Using ${availableModel} for comprehensive market analysis`);
-    
-    const model = genAI.getGenerativeModel({
+    console.log(`🟢 Using ${availableModel} for question...`);
+    const model = geminiClient.getGenerativeModel({ 
       model: availableModel,
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 400,
+        maxOutputTokens: 200,
         topP: 0.95,
-      },
+      }
     });
 
     const prompt = `
-You are EventSense AI, an expert analyst for prediction markets and crypto markets. Analyze this comprehensive data and provide insights that connect crypto prices, prediction markets, and news events.
+You are EventSense AI, an expert assistant for prediction markets and crypto markets. Answer the following question helpfully and concisely.
 
-CRYPTO PRICES (from Pyth Network):
-${JSON.stringify(priceData, null, 2)}
+Question: ${question}
 
-PREDICTION MARKETS (from Polymarket):
-${JSON.stringify(marketData, null, 2)}
-
-RECENT NEWS:
-${JSON.stringify(newsData, null, 2)}
-
-Provide 3-4 key insights focusing on:
-1. How news events might affect prediction markets and crypto prices
-2. Correlation between crypto trends and market predictions
-3. Potential trading opportunities or risks
-4. Notable patterns or anomalies
-
-Keep the response professional, data-driven, and actionable. Focus on connecting the different data sources.
+Focus on prediction markets, probabilities, and market analysis. Keep your response under 3 sentences unless more detail is specifically requested.
 `;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
     
-    console.log('Gemini comprehensive analysis received successfully');
+    console.log('✅ Gemini response received');
     return text;
 
   } catch (error) {
-    console.error("Gemini AI failed:", error.message);
-    return generateFallbackAnalysis(priceData, marketData, newsData);
+    console.error('❌ Gemini error:', error.message);
+    return "I'm currently focusing on analyzing the prediction market data shown above. Feel free to ask about specific trends or probabilities!";
   }
 };
 
 export const generateAISummary = async (marketData) => {
-  // Initialize on first use
-  if (!modelInitialized) {
-    await initializeGemini();
+  // Wait for initialization to complete
+  const initialized = await initializeGemini();
+  
+  if (!initialized || !geminiClient) {
+    console.log('Using fallback summary');
+    return generateFallbackSummary(marketData);
   }
 
   try {
-    if (!genAI || !availableModel) {
-      console.log('Gemini not available, using fallback for summary');
-      return generateFallbackSummary(marketData);
-    }
-
-    console.log(`Using ${availableModel} for market analysis`);
-    
-    const model = genAI.getGenerativeModel({
+    console.log(`🟢 Using ${availableModel} for market summary`);
+    const model = geminiClient.getGenerativeModel({ 
       model: availableModel,
       generationConfig: {
         temperature: 0.7,
         maxOutputTokens: 256,
         topP: 0.95,
-      },
+      }
     });
 
     const prompt = `
@@ -184,60 +205,158 @@ Keep the response professional, insightful, and easy to understand. Focus on the
     const response = await result.response;
     const text = response.text();
     
-    console.log('Gemini response received successfully');
+    console.log('✅ Gemini summary received successfully');
     return text;
 
   } catch (error) {
-    console.error("Gemini AI failed:", error.message);
+    console.error('Gemini summary error:', error.message);
     return generateFallbackSummary(marketData);
   }
 };
 
-export const generateAIResponse = async (question) => {
-  // Initialize on first use
-  if (!modelInitialized) {
-    await initializeGemini();
+export const generateComprehensiveAnalysis = async (priceData, marketData, newsData) => {
+  // Try direct Gemini API first with a proper prompt
+  try {
+    console.log('🔄 Attempting direct Gemini API call...');
+    
+    const cryptoCount = Object.keys(priceData || {}).length;
+    const marketCount = Array.isArray(marketData) ? marketData.length : 0;
+    const newsCount = Array.isArray(newsData) ? newsData.length : 0;
+    
+    // Create a simple but meaningful prompt
+    const prompt = `Provide a brief market analysis based on: ${cryptoCount} cryptocurrency prices, ${marketCount} prediction markets, and ${newsCount} news articles. Focus on current trends and short-term outlook.`;
+    
+    console.log('📝 Prompt for Gemini:', prompt);
+    
+    const geminiResult = await testDirectGeminiAPI(prompt);
+    
+    // Check if we got a valid response
+    if (geminiResult.candidates && geminiResult.candidates[0] && geminiResult.candidates[0].content) {
+      const geminiText = geminiResult.candidates[0].content.parts[0].text;
+      if (geminiText && geminiText.length > 10) {
+        console.log('✅ Direct Gemini API successful:', geminiText.substring(0, 100) + '...');
+        return geminiText;
+      }
+    }
+    
+    console.log('❌ Direct Gemini API returned invalid response, using enhanced analysis');
+    
+  } catch (error) {
+    console.error('❌ Direct Gemini API failed:', error.message);
+  }
+  
+  // Fall back to our enhanced analysis
+  console.log('🔄 Using enhanced analysis with AI-style formatting');
+  return generateEnhancedFallback(priceData, marketData, newsData);
+};
+
+// Direct API call to Gemini
+export const testDirectGeminiAPI = async (prompt) => {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('No API key');
   }
 
   try {
-    if (!genAI || !availableModel) {
-      console.log('Gemini not available, using fallback for question');
-      return "I'm currently analyzing prediction market trends. For detailed insights, check the market cards above.";
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 200, // Increased slightly
+            topP: 0.8
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
 
-    console.log(`Using ${availableModel} for question`);
-    
-    const model = genAI.getGenerativeModel({
-      model: availableModel,
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 200,
-        topP: 0.95,
-      },
-    });
-
-    const prompt = `
-You are EventSense AI, an expert assistant for prediction markets. Answer the following question helpfully and concisely.
-
-Question: ${question}
-
-Focus on prediction markets, probabilities, and market analysis. Keep your response under 3 sentences unless more detail is specifically requested.
-`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    console.log('Gemini question response received');
-    return text;
-
+    const data = await response.json();
+    return data;
   } catch (error) {
-    console.error("Gemini question failed:", error.message);
-    return "I'm currently focusing on analyzing the prediction market data shown above. Feel free to ask about specific trends or probabilities!";
+    console.error('Direct API error:', error);
+    throw error;
   }
 };
 
-// Your existing fallback functions remain the same...
+// Enhanced fallback with actual predictions
+function generateEnhancedFallback(priceData, marketData, newsData) {
+  const priceCount = Object.keys(priceData || {}).length;
+  const marketCount = Array.isArray(marketData) ? marketData.length : 0;
+  const newsCount = Array.isArray(newsData) ? newsData.length : 0;
+
+  // Calculate actual metrics from data
+  const markets = marketData || [];
+  const avgProbability = markets.length > 0 
+    ? (markets.reduce((sum, m) => sum + (m.probability || 0), 0) / markets.length * 100).toFixed(1)
+    : 0;
+
+  const upMarkets = markets.filter(m => m.trend === 'up').length;
+  const downMarkets = markets.filter(m => m.trend === 'down').length;
+  const stableMarkets = markets.filter(m => !m.trend || m.trend === 'flat').length;
+
+  // Get top performing markets
+  const topMarkets = markets
+    .filter(m => m.probability > 0)
+    .sort((a, b) => (b.probability || 0) - (a.probability || 0))
+    .slice(0, 3);
+
+  // Get crypto with significant moves
+  const cryptoMoves = Object.entries(priceData || {})
+    .filter(([_, data]) => Math.abs(data.change24h || 0) > 2)
+    .slice(0, 3);
+
+  let analysis = `🔮 Market Analysis & Predictions - ${new Date().toLocaleTimeString()}\n\n`;
+  
+  analysis += `📊 DATA OVERVIEW:\n`;
+  analysis += `• ${priceCount} cryptocurrencies tracked\n`;
+  analysis += `• ${marketCount} prediction markets (${upMarkets} ↗️ ${downMarkets} ↘️ ${stableMarkets} ➡️)\n`;
+  analysis += `• ${newsCount} news sources monitored\n\n`;
+  
+  analysis += `📈 MARKET INSIGHTS:\n`;
+  analysis += `• Prediction markets show ${avgProbability}% average probability\n`;
+  
+  if (topMarkets.length > 0) {
+    analysis += `• Highest conviction: ${topMarkets.map(m => `${(m.probability * 100).toFixed(1)}%`).join(', ')}\n`;
+  }
+  
+  if (cryptoMoves.length > 0) {
+    analysis += `• Notable moves: ${cryptoMoves.map(([sym, data]) => 
+      `${sym} ${data.change24h > 0 ? '↑' : '↓'}${Math.abs(data.change24h)}%`
+    ).join(', ')}\n`;
+  }
+  
+  analysis += `\n🔮 PREDICTIONS & OUTLOOK:\n`;
+  
+  if (upMarkets > downMarkets) {
+    analysis += `• Short-term: Moderately bullish sentiment across prediction markets\n`;
+    analysis += `• Watch for: Correlation between crypto gains and market probabilities\n`;
+  } else if (downMarkets > upMarkets) {
+    analysis += `• Short-term: Cautious sentiment with some bearish indicators\n`;
+    analysis += `• Watch for: News-driven volatility in both crypto and prediction markets\n`;
+  } else {
+    analysis += `• Short-term: Mixed signals with balanced market sentiment\n`;
+    analysis += `• Watch for: Breakout opportunities in high-probability markets\n`;
+  }
+  
+  analysis += `• Key Insight: ${newsCount > 10 ? 'High news volume may drive increased market activity' : 'Monitor emerging news for market-moving events'}\n`;
+
+  return analysis;
+}
+
+// Keep your existing fallback functions
 function generateFallbackAnalysis(priceData, marketData, newsData) {
   const priceCount = Object.keys(priceData || {}).length;
   const marketCount = Array.isArray(marketData) ? marketData.length : 0;
