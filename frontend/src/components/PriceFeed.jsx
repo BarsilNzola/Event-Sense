@@ -18,7 +18,7 @@ export default function PriceFeed() {
       }
       
       const data = await response.json();
-      console.log('🔍 Frontend - Received price data:', data); // Debug log
+      console.log('Frontend - Received price data:', data);
       
       if (data.success) {
         setPrices(data.data);
@@ -27,9 +27,9 @@ export default function PriceFeed() {
         throw new Error(data.error || 'Failed to fetch prices');
       }
     } catch (error) {
-      console.error("❌ Failed to fetch prices:", error);
+      console.error("Failed to fetch prices:", error);
       setError(error.message);
-      setPrices({}); // Clear prices on error
+      setPrices({});
     } finally {
       setLoading(false);
     }
@@ -37,7 +37,6 @@ export default function PriceFeed() {
 
   useEffect(() => {
     fetchPrices();
-    // Refresh every 30 seconds
     const interval = setInterval(fetchPrices, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -175,7 +174,7 @@ export default function PriceFeed() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h3 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#0F9E99' }}>
-          📊 Live Crypto Prices
+          Live Crypto Prices
         </h3>
         <button
           onClick={fetchPrices}

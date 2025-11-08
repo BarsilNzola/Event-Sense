@@ -10,26 +10,26 @@ const __dirname = path.dirname(__filename);
 // Load .env from root directory
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
-console.log('=== AI SERVICE INITIALIZATION ===');
+console.log('AI SERVICE INITIALIZATION');
 console.log('GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? `SET (length: ${process.env.GEMINI_API_KEY.length})` : 'NOT SET');
 
 // Simple Gemini initialization
 let geminiClient = null;
-let availableModel = "gemini-2.5-flash"; // Directly use the model you specified
+let availableModel = "gemini-2.5-flash";
 
 // Direct test function
 export const testGeminiConnection = async () => {
-  console.log('🧪 Testing Gemini connection...');
+  console.log('Testing Gemini connection...');
   
   if (!process.env.GEMINI_API_KEY) {
     return { success: false, error: 'GEMINI_API_KEY not found in environment' };
   }
 
   try {
-    console.log('1. Creating GoogleGenerativeAI instance...');
+    console.log('Creating GoogleGenerativeAI instance...');
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     
-    console.log(`2. Testing model: ${availableModel}`);
+    console.log(`Testing model: ${availableModel}`);
     const model = genAI.getGenerativeModel({ 
       model: availableModel,
       generationConfig: {
@@ -38,12 +38,12 @@ export const testGeminiConnection = async () => {
       }
     });
     
-    console.log('3. Generating test content...');
+    console.log('Generating test content...');
     const result = await model.generateContent("Say 'OK'");
     const response = await result.response;
     const text = response.text();
     
-    console.log(`✅ Model ${availableModel} works! Response: ${text}`);
+    console.log(`Model ${availableModel} works! Response: ${text}`);
     geminiClient = genAI;
     
     return { 
@@ -53,11 +53,11 @@ export const testGeminiConnection = async () => {
     };
     
   } catch (error) {
-    console.error('❌ Gemini test failed:', error.message);
+    console.error('Gemini test failed:', error.message);
     
     // If gemini-2.5-flash fails, try gemini-2.0-flash as fallback
     if (error.message.includes('not found') || error.message.includes('404')) {
-      console.log('🔄 Trying gemini-2.0-flash as fallback...');
+      console.log('Trying gemini-2.0-flash as fallback...');
       try {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const fallbackModel = "gemini-2.0-flash";
@@ -73,7 +73,7 @@ export const testGeminiConnection = async () => {
         const response = await result.response;
         const text = response.text();
         
-        console.log(`✅ Fallback model ${fallbackModel} works! Response: ${text}`);
+        console.log(`Fallback model ${fallbackModel} works! Response: ${text}`);
         availableModel = fallbackModel;
         geminiClient = genAI;
         
@@ -83,7 +83,7 @@ export const testGeminiConnection = async () => {
           model: fallbackModel
         };
       } catch (fallbackError) {
-        console.error('❌ Fallback model also failed:', fallbackError.message);
+        console.error('Fallback model also failed:', fallbackError.message);
       }
     }
     
@@ -103,15 +103,15 @@ async function initializeGemini() {
   if (initializationPromise) return initializationPromise;
   
   initializationPromise = (async () => {
-    console.log('🚀 Initializing Gemini...');
+    console.log('Initializing Gemini...');
     
     const testResult = await testGeminiConnection();
     
     if (testResult.success) {
-      console.log('✅ Gemini initialized successfully with model:', availableModel);
+      console.log('Gemini initialized successfully with model:', availableModel);
       return true;
     } else {
-      console.log('❌ Gemini initialization failed:', testResult.error);
+      console.log('Gemini initialization failed:', testResult.error);
       geminiClient = null;
       return false;
     }
@@ -122,22 +122,22 @@ async function initializeGemini() {
 
 // Start initialization immediately
 initializeGemini().then(success => {
-  console.log('🎯 Gemini initialization completed:', success);
+  console.log('Gemini initialization completed:', success);
 });
 
 export const generateAIResponse = async (question) => {
-  console.log('🤖 generateAIResponse called with:', question.substring(0, 50) + '...');
+  console.log('generateAIResponse called with:', question.substring(0, 50) + '...');
   
   // Wait for initialization to complete
   const initialized = await initializeGemini();
   
   if (!initialized || !geminiClient) {
-    console.log('🔴 Using fallback - Gemini not available');
+    console.log('Using fallback - Gemini not available');
     return "I'm currently analyzing prediction market trends. For detailed insights, check the market cards above.";
   }
 
   try {
-    console.log(`🟢 Using ${availableModel} for question...`);
+    console.log(`Using ${availableModel} for question...`);
     const model = geminiClient.getGenerativeModel({ 
       model: availableModel,
       generationConfig: {
@@ -159,11 +159,11 @@ Focus on prediction markets, probabilities, and market analysis. Keep your respo
     const response = await result.response;
     const text = response.text();
     
-    console.log('✅ Gemini response received');
+    console.log('Gemini response received');
     return text;
 
   } catch (error) {
-    console.error('❌ Gemini error:', error.message);
+    console.error('Gemini error:', error.message);
     return "I'm currently focusing on analyzing the prediction market data shown above. Feel free to ask about specific trends or probabilities!";
   }
 };
@@ -178,7 +178,7 @@ export const generateAISummary = async (marketData) => {
   }
 
   try {
-    console.log(`🟢 Using ${availableModel} for market summary`);
+    console.log(`Using ${availableModel} for market summary`);
     const model = geminiClient.getGenerativeModel({ 
       model: availableModel,
       generationConfig: {
@@ -205,7 +205,7 @@ Keep the response professional, insightful, and easy to understand. Focus on the
     const response = await result.response;
     const text = response.text();
     
-    console.log('✅ Gemini summary received successfully');
+    console.log('Gemini summary received successfully');
     return text;
 
   } catch (error) {
@@ -223,17 +223,17 @@ export const generateComprehensiveAnalysis = async (priceData, marketData, newsD
   }
 
   try {
-    console.log('🔄 Attempting Gemini API with formatted data...');
+    console.log('Attempting Gemini API with formatted data...');
     
     const prompt = createAIPrompt(formattedData);
-    console.log('📝 AI Prompt with actual data:', prompt.substring(0, 200) + '...');
+    console.log('AI Prompt with actual data:', prompt.substring(0, 200) + '...');
     
     const geminiResult = await testDirectGeminiAPI(prompt);
     
     if (geminiResult.candidates?.[0]?.content?.parts?.[0]?.text) {
       const geminiText = geminiResult.candidates[0].content.parts[0].text;
       if (geminiText && geminiText.length > 10) {
-        console.log('✅ Gemini analysis successful');
+        console.log('Gemini analysis successful');
         return geminiText;
       }
     }
@@ -241,7 +241,7 @@ export const generateComprehensiveAnalysis = async (priceData, marketData, newsD
     throw new Error('Invalid response from Gemini');
     
   } catch (error) {
-    console.error('❌ Gemini analysis failed:', error.message);
+    console.error('Gemini analysis failed:', error.message);
     return generateEnhancedFallback(priceData, marketData, newsData);
   }
 };
@@ -286,10 +286,10 @@ function formatDataForAI(priceData, marketData, newsData) {
       impact: impact,
       source: item.source || item.publisher || 'Unknown'
     };
-  }).filter(newsItem => newsItem.title !== 'No title') // Remove invalid news
-    .slice(0, 5); // Limit to top 5 news items
+  }).filter(newsItem => newsItem.title !== 'No title')
+    .slice(0, 5);
 
-  console.log(`✅ Formatted ${newsHighlights.length} news items from ${news.length} total`);
+  console.log(`Formatted ${newsHighlights.length} news items from ${news.length} total`);
 
   return {
     hasValidData: cryptoDetails.length > 0 || marketDetails.length > 0 || newsHighlights.length > 0,
@@ -400,7 +400,7 @@ export const testDirectGeminiAPI = async (prompt) => {
           }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 500, // Increased for more detailed analysis
+            maxOutputTokens: 500,
             topP: 0.8
           }
         })
@@ -447,14 +447,14 @@ function generateEnhancedFallback(priceData, marketData, newsData) {
     .filter(([_, data]) => Math.abs(data.change24h || 0) > 2)
     .slice(0, 3);
 
-  let analysis = `🔮 Market Analysis & Predictions - ${new Date().toLocaleTimeString()}\n\n`;
+  let analysis = `Market Analysis & Predictions - ${new Date().toLocaleTimeString()}\n\n`;
   
-  analysis += `📊 DATA OVERVIEW:\n`;
+  analysis += `DATA OVERVIEW:\n`;
   analysis += `• ${priceCount} cryptocurrencies tracked\n`;
   analysis += `• ${marketCount} prediction markets (${upMarkets} ↗️ ${downMarkets} ↘️ ${stableMarkets} ➡️)\n`;
   analysis += `• ${newsCount} news sources monitored\n\n`;
   
-  analysis += `📈 MARKET INSIGHTS:\n`;
+  analysis += `MARKET INSIGHTS:\n`;
   analysis += `• Prediction markets show ${avgProbability}% average probability\n`;
   
   if (topMarkets.length > 0) {
@@ -467,7 +467,7 @@ function generateEnhancedFallback(priceData, marketData, newsData) {
     ).join(', ')}\n`;
   }
   
-  analysis += `\n🔮 PREDICTIONS & OUTLOOK:\n`;
+  analysis += `\nPREDICTIONS & OUTLOOK:\n`;
   
   if (upMarkets > downMarkets) {
     analysis += `• Short-term: Moderately bullish sentiment across prediction markets\n`;

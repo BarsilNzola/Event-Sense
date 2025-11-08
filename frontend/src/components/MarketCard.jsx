@@ -226,7 +226,7 @@ export default function MarketCard({ market }) {
             onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
             onMouseOut={(e) => e.target.style.textDecoration = 'none'}
           >
-            View on IPFS ↗
+            View on IPFS
           </a>
         </div>
       )}

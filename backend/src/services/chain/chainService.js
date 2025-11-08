@@ -17,7 +17,7 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
 if (!RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
-  console.warn("⚠️ Missing RPC/PRIVATE_KEY/CONTRACT_ADDRESS in .env for chainService");
+  console.warn("Missing RPC/PRIVATE_KEY/CONTRACT_ADDRESS in .env for chainService");
 }
 
 // Read the ABI file directly
@@ -34,13 +34,13 @@ try {
     provider = new JsonRpcProvider(RPC);
     wallet = new Wallet(PRIVATE_KEY, provider);
     contract = new Contract(CONTRACT_ADDRESS, EventSenseStorageArtifact.abi, wallet);
-    console.log("✅ Chain service initialized successfully");
+    console.log("Chain service initialized successfully");
   } else {
-    console.warn("⚠️ Chain service: Missing environment variables, blockchain features disabled");
+    console.warn("Chain service: Missing environment variables, blockchain features disabled");
   }
 } catch (error) {
-  console.error("❌ Failed to initialize chain service:", error.message);
-  console.log("📁 Looking for contract at:", contractPath);
+  console.error("Failed to initialize chain service:", error.message);
+  console.log("Looking for contract at:", contractPath);
 }
 
 /**
@@ -54,14 +54,14 @@ export const storeCIDOnChain = async (cid) => {
   }
 
   try {
-    console.log(`📤 Storing CID on blockchain: ${cid}`);
+    console.log(`Storing CID on blockchain: ${cid}`);
     
     const tx = await contract.storeSummary(cid);
-    console.log("📤 Submitted tx:", tx.hash);
+    console.log("Submitted tx:", tx.hash);
     
     const receipt = await tx.wait();
-    console.log("✅ Tx mined in block:", receipt.blockNumber);
-    console.log("🔍 Receipt details:", {
+    console.log("Tx mined in block:", receipt.blockNumber);
+    console.log("Receipt details:", {
       hash: receipt.hash,
       transactionHash: receipt.transactionHash,
       blockNumber: receipt.blockNumber,
@@ -76,7 +76,7 @@ export const storeCIDOnChain = async (cid) => {
     const txHash = receipt.hash || receipt.transactionHash;
     
     if (!txHash) {
-      console.warn("⚠️ No transaction hash found in receipt, using tx.hash");
+      console.warn("No transaction hash found in receipt, using tx.hash");
     }
     
     const result = { 
@@ -88,11 +88,11 @@ export const storeCIDOnChain = async (cid) => {
       gasUsed: receipt.gasUsed?.toString() || '0'
     };
 
-    console.log("✅ Blockchain storage completed:", result);
+    console.log("Blockchain storage completed:", result);
     return result;
     
   } catch (err) {
-    console.error("❌ Error storing CID on chain:", err);
+    console.error("Error storing CID on chain:", err);
     
     // Provide more detailed error information
     if (err.reason) {
@@ -115,7 +115,7 @@ export const storeCIDOnChain = async (cid) => {
  */
 export const getTotalSummaries = async () => {
   if (!contract) {
-    console.warn("⚠️ Chain service not initialized");
+    console.warn("Chain service not initialized");
     return 0;
   }
 
@@ -123,7 +123,7 @@ export const getTotalSummaries = async () => {
     const count = await contract.totalSummaries();
     return parseInt(count.toString());
   } catch (err) {
-    console.error("❌ Error getting total summaries:", err);
+    console.error("Error getting total summaries:", err);
     return 0;
   }
 };
@@ -146,7 +146,7 @@ export const getSummaryByIndex = async (index) => {
       timestamp: new Date(parseInt(summary.timestamp.toString()) * 1000).toISOString()
     };
   } catch (err) {
-    console.error(`❌ Error getting summary at index ${index}:`, err);
+    console.error(`Error getting summary at index ${index}:`, err);
     throw err;
   }
 };
@@ -157,7 +157,7 @@ export const getSummaryByIndex = async (index) => {
  */
 export const getAllSummaries = async () => {
   if (!contract) {
-    console.warn("⚠️ Chain service not initialized");
+    console.warn("Chain service not initialized");
     return [];
   }
 
@@ -173,14 +173,14 @@ export const getAllSummaries = async () => {
           ...summary
         });
       } catch (err) {
-        console.warn(`⚠️ Could not fetch summary at index ${i}:`, err.message);
+        console.warn(`Could not fetch summary at index ${i}:`, err.message);
         // Continue with next summary
       }
     }
 
     return summaries;
   } catch (err) {
-    console.error("❌ Error getting all summaries:", err);
+    console.error("Error getting all summaries:", err);
     return [];
   }
 };
@@ -192,7 +192,7 @@ export const getAllSummaries = async () => {
  */
 export const verifyCIDOnChain = async (cid) => {
   if (!contract) {
-    console.warn("⚠️ Chain service not initialized");
+    console.warn("Chain service not initialized");
     return false;
   }
 
@@ -208,7 +208,7 @@ export const verifyCIDOnChain = async (cid) => {
     
     return false;
   } catch (err) {
-    console.error("❌ Error verifying CID on chain:", err);
+    console.error("Error verifying CID on chain:", err);
     return false;
   }
 };
@@ -240,7 +240,7 @@ export const getContractInfo = async () => {
       blockNumber: await provider.getBlockNumber()
     };
   } catch (err) {
-    console.error("❌ Error getting contract info:", err);
+    console.error("Error getting contract info:", err);
     return {
       initialized: false,
       error: err.message

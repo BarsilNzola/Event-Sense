@@ -17,7 +17,7 @@ class AutoInsightsService {
   }
 
   async initialize() {
-    console.log('🚀 AutoInsightsService: Initializing...');
+    console.log('AutoInsightsService: Initializing...');
     setTimeout(() => {
       this.startAutoGeneration();
     }, 10000);
@@ -30,7 +30,7 @@ class AutoInsightsService {
     }
 
     this.isGenerating = true;
-    console.log('🤖 Auto-insights: Starting generation...');
+    console.log('Auto-insights: Starting generation...');
 
     try {
       const [priceData, marketData, newsData] = await Promise.all([
@@ -39,10 +39,10 @@ class AutoInsightsService {
         newsService.getNews()
       ]);
 
-      console.log(`📊 Auto-insights: Data sources - ${Object.keys(priceData).length} prices, ${marketData.markets?.length || 0} markets, ${newsData.articles?.length || 0} news`);
+      console.log(`Auto-insights: Data sources - ${Object.keys(priceData).length} prices, ${marketData.markets?.length || 0} markets, ${newsData.articles?.length || 0} news`);
 
       if (Object.keys(priceData).length === 0 && (marketData.markets?.length || 0) === 0) {
-        console.log('❌ Auto-insights: Insufficient data for analysis');
+        console.log('Auto-insights: Insufficient data for analysis');
         throw new Error('Insufficient data from all sources');
       }
 
@@ -72,16 +72,16 @@ class AutoInsightsService {
       
       // Store permanently in background (don't wait for completion)
       this.storeInsightPermanently(newInsight).catch(error => {
-        console.error('❌ Background storage failed:', error.message);
+        console.error('Background storage failed:', error.message);
       });
 
       this.lastGenerated = Date.now();
-      console.log('✅ Auto-insights: Generated successfully. Total insights:', this.insightsHistory.length);
+      console.log('Auto-insights: Generated successfully. Total insights:', this.insightsHistory.length);
       
       return newInsight;
 
     } catch (error) {
-      console.error('❌ Auto-insights: Generation failed:', error.message);
+      console.error('Auto-insights: Generation failed:', error.message);
       
       // Create fallback insight
       const fallbackInsight = {
@@ -107,7 +107,7 @@ class AutoInsightsService {
   // Store insight permanently to IPFS and blockchain
   async storeInsightPermanently(insight) {
     try {
-      console.log('💾 Starting permanent storage for insight:', insight.id);
+      console.log('Starting permanent storage for insight:', insight.id);
       
       const storageResult = await insightsStorage.storeInsight(insight);
       
@@ -125,13 +125,13 @@ class AutoInsightsService {
           };
         }
         
-        console.log('✅ Insight permanently stored:', {
+        console.log('Insight permanently stored:', {
           id: insight.id,
           cid: storageResult.cid,
           txHash: storageResult.txHash
         });
       } else {
-        console.error('❌ Permanent storage failed for insight:', insight.id);
+        console.error('Permanent storage failed for insight:', insight.id);
         
         // Mark as failed but keep in memory
         const failedInsight = this.insightsHistory.find(i => i.id === insight.id);
@@ -144,7 +144,7 @@ class AutoInsightsService {
       return storageResult;
       
     } catch (error) {
-      console.error('❌ Permanent storage process failed:', error.message);
+      console.error('Permanent storage process failed:', error.message);
       
       // Mark as failed
       const failedInsight = this.insightsHistory.find(i => i.id === insight.id);
@@ -187,7 +187,7 @@ class AutoInsightsService {
     );
     
     if (initialLength !== this.insightsHistory.length) {
-      console.log(`🧹 Cleaned up ${initialLength - this.insightsHistory.length} old insights from memory`);
+      console.log(`Cleaned up ${initialLength - this.insightsHistory.length} old insights from memory`);
     }
   }
 
@@ -197,18 +197,18 @@ class AutoInsightsService {
 
   startAutoGeneration() {
     if (this.autoUpdateInterval) {
-      console.log('⚠️ Auto-insights: Auto-generation already running');
+      console.log('Auto-insights: Auto-generation already running');
       return;
     }
     
-    console.log(`🚀 Auto-insights: Starting auto-generation (every ${this.generationInterval / 60000} minutes)`);
+    console.log(`Auto-insights: Starting auto-generation (every ${this.generationInterval / 60000} minutes)`);
     
     // Generate immediately on startup
     this.generateInsights();
     
     // Set up recurring generation
     this.autoUpdateInterval = setInterval(() => {
-      console.log('⏰ Auto-insights: Scheduled generation triggered');
+      console.log('Auto-insights: Scheduled generation triggered');
       this.generateInsights();
     }, this.generationInterval);
 
@@ -219,7 +219,7 @@ class AutoInsightsService {
     if (this.autoUpdateInterval) {
       clearInterval(this.autoUpdateInterval);
       this.autoUpdateInterval = null;
-      console.log('🛑 Auto-insights: Auto-generation stopped');
+      console.log('Auto-insights: Auto-generation stopped');
     }
   }
 
@@ -239,7 +239,7 @@ class AutoInsightsService {
 
   // Manual trigger for testing
   async triggerManualGeneration() {
-    console.log('👤 Auto-insights: Manual generation triggered');
+    console.log('Auto-insights: Manual generation triggered');
     return await this.generateInsights();
   }
 }

@@ -1,4 +1,3 @@
-// services/news/newsService.js
 import axios from "axios";
 import { XMLParser } from 'fast-xml-parser';
 

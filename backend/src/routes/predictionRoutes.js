@@ -11,11 +11,11 @@ router.get("/analyze", async (req, res) => {
   try {
     const data = await polymarketService.getMarketData();
     
-    res.setHeader('Cache-Control', 'public, max-age=300'); // 5 min client cache
+    res.setHeader('Cache-Control', 'public, max-age=300');
     res.json(data);
     
   } catch (error) {
-    console.error("❌ Error getting Polymarket data:", error);
+    console.error("Error getting Polymarket data:", error);
     res.status(500).json({ 
       error: "Could not fetch Polymarket data",
       message: error.message 
@@ -75,7 +75,7 @@ router.get("/debug-raw", async (req, res) => {
   }
 });
 
-// Simple version (backward compatibility)
+// Simple version
 router.get("/analyze-simple", async (req, res) => {
   try {
     const markets = await polymarketService.fetchPolymarketData();

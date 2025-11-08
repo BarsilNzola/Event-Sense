@@ -25,13 +25,13 @@ class PolymarketService {
   // Update the cache with fresh data
   async updateCache() {
     if (this.isUpdating) {
-      console.log('🔄 Cache update already in progress, waiting...');
+      console.log('Cache update already in progress, waiting...');
       await new Promise(resolve => setTimeout(resolve, 1000));
       return this.cache;
     }
 
     this.isUpdating = true;
-    console.log('🔄 Updating Polymarket cache...');
+    console.log('Updating Polymarket cache...');
 
     try {
       const cacheBuster = Date.now();
@@ -132,11 +132,11 @@ class PolymarketService {
       };
 
       this.lastUpdated = Date.now();
-      console.log('✅ Polymarket cache updated successfully');
-      console.log(`📊 Cached ${markets.length} markets`);
+      console.log('Polymarket cache updated successfully');
+      console.log(`Cached ${markets.length} markets`);
 
     } catch (error) {
-      console.error('❌ Failed to update Polymarket cache:', error.message);
+      console.error('Failed to update Polymarket cache:', error.message);
       if (!this.cache) {
         this.cache = { 
           markets: [], 
@@ -153,7 +153,7 @@ class PolymarketService {
 
   // Force immediate cache update
   async forceRefresh() {
-    console.log('🔄 Forcing cache refresh...');
+    console.log('Forcing cache refresh...');
     return await this.updateCache();
   }
 
@@ -170,7 +170,7 @@ class PolymarketService {
 
   // Start automatic hourly updates
   startAutoRefresh() {
-    console.log('🔄 Starting Polymarket auto-refresh (hourly)');
+    console.log('Starting Polymarket auto-refresh (hourly)');
     
     // Initial update
     this.updateCache();
@@ -185,7 +185,7 @@ class PolymarketService {
     // Check for stale cache every minute
     setInterval(() => {
       if (this.isCacheStale() && !this.isUpdating) {
-        console.log('🔄 Cache is stale, updating...');
+        console.log('Cache is stale, updating...');
         this.updateCache();
       }
     }, 60000);

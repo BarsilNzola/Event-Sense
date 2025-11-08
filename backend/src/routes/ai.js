@@ -14,7 +14,7 @@ const router = express.Router();
 // ==================== GEMINI DEBUG ROUTES ====================
 
 router.get('/debug-gemini', async (req, res) => {
-  console.log('=== GEMINI DEBUG START ===');
+  console.log('GEMINI DEBUG START');
   
   // Check environment variables
   console.log('1. Checking environment...');
@@ -33,7 +33,7 @@ router.get('/debug-gemini', async (req, res) => {
     console.log('Direct test error:', error.message);
   }
   
-  console.log('=== GEMINI DEBUG END ===');
+  console.log('GEMINI DEBUG END');
   
   res.json({ 
     status: 'debug_complete',
@@ -145,7 +145,7 @@ router.get("/insights/stored", async (req, res) => {
 // Manual trigger for insights
 router.post("/insights/generate", async (req, res) => {
   try {
-    console.log('🔄 Manually triggering insights generation...');
+    console.log('Manually triggering insights generation...');
     const insight = await autoInsightsService.triggerManualGeneration();
     
     res.json({

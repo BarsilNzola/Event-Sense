@@ -8,15 +8,14 @@ export default function AIAssistant({ markets }) {
   const [conversation, setConversation] = useState([]);
   const [insights, setInsights] = useState([]);
   const [insightsLoading, setInsightsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("insights"); // Default to insights tab
+  const [activeTab, setActiveTab] = useState("insights");
 
-  // 🧠 Fetch auto-generated insights
+  // Fetch auto-generated insights
   const fetchInsights = async () => {
     try {
       setInsightsLoading(true);
       const { data } = await axios.get("http://localhost:5000/api/ai/insights/history");
       if (data.success) {
-        // Convert insights to chat messages
         const insightMessages = data.insights.map(insight => ({
           type: 'ai',
           content: insight.analysis,
@@ -28,7 +27,6 @@ export default function AIAssistant({ markets }) {
         
         setInsights(data.insights);
         
-        // If we're on insights tab, update conversation with insights
         if (activeTab === "insights") {
           setConversation(insightMessages);
         }
@@ -40,7 +38,7 @@ export default function AIAssistant({ markets }) {
     }
   };
 
-  // 🧠 Manual text-based AI query
+  // Manual text-based AI query
   const handleAsk = async () => {
     if (!query.trim()) return;
     
@@ -78,7 +76,7 @@ export default function AIAssistant({ markets }) {
     }
   };
 
-  // 🧠 Quick action buttons for common queries
+  // Quick action buttons for common queries
   const handleQuickQuestion = async (question) => {
     setQuery(question);
     setTimeout(() => {
@@ -101,7 +99,6 @@ export default function AIAssistant({ markets }) {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     if (tab === "insights") {
-      // Convert insights to conversation format
       const insightMessages = insights.map(insight => ({
         type: 'ai',
         content: insight.analysis,
@@ -112,7 +109,6 @@ export default function AIAssistant({ markets }) {
       }));
       setConversation(insightMessages);
     } else {
-      // Clear conversation for regular chat
       setConversation([]);
     }
   };
@@ -120,7 +116,7 @@ export default function AIAssistant({ markets }) {
   // Load insights on component mount and set up auto-refresh
   useEffect(() => {
     fetchInsights();
-    const interval = setInterval(fetchInsights, 30000); // Refresh every 30 seconds
+    const interval = setInterval(fetchInsights, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -287,7 +283,7 @@ export default function AIAssistant({ markets }) {
           marginBottom: '16px'
         }}>
           <div style={{ color: '#166534', fontSize: '0.875rem' }}>
-            <strong>🤖 Auto-Generated Insights</strong> • Updates every 15 minutes
+            <strong>Auto-Generated Insights</strong> • Updates every 15 minutes
           </div>
           <div style={{ color: '#0F9E99', fontSize: '0.8rem', fontWeight: '600' }}>
             {insights.length} insights
@@ -421,9 +417,9 @@ export default function AIAssistant({ markets }) {
                   display: 'flex',
                   gap: '12px'
                 }}>
-                  <span>📊 {msg.dataSources.cryptoPrices} prices</span>
-                  <span>🎯 {msg.dataSources.predictionMarkets} markets</span>
-                  <span>📰 {msg.dataSources.newsArticles} news</span>
+                  <span>{msg.dataSources.cryptoPrices} prices</span>
+                  <span>{msg.dataSources.predictionMarkets} markets</span>
+                  <span>{msg.dataSources.newsArticles} news</span>
                 </div>
               )}
 
@@ -440,7 +436,7 @@ export default function AIAssistant({ markets }) {
                 }}>
                   {msg.storage.status === 'stored' && (
                     <>
-                      <span style={{ color: '#166534' }}>✅ Stored on</span>
+                      <span style={{ color: '#166534' }}>Stored on</span>
                       {msg.storage.ipfs && (
                         <a 
                           href={msg.storage.ipfsUrl} 

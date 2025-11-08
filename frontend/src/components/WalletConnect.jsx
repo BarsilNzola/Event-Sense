@@ -246,7 +246,7 @@ export default function WalletConnect({ onConnect }) {
                     fontSize: '0.75rem',
                     textAlign: 'center'
                   }}>
-                    🔒 Your wallet connection is secure and private
+                    Your wallet connection is secure and private
                   </div>
                 </div>
               </div>

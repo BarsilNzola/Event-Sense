@@ -23,14 +23,14 @@ try {
                            pythModule.default?.PriceServiceConnection;
   
   if (PriceServiceConnection) {
-    console.log('✅ Pyth Common JS loaded successfully');
+    console.log('Pyth Common JS loaded successfully');
   } else {
-    console.log('❌ PriceServiceConnection not found in Pyth module');
+    console.log('PriceServiceConnection not found in Pyth module');
     console.log('Available exports:', Object.keys(pythModule));
     PriceServiceConnection = null;
   }
 } catch (error) {
-  console.error('❌ Failed to load Pyth Common JS:', error);
+  console.error('Failed to load Pyth Common JS:', error);
   PriceServiceConnection = null;
 }
 
@@ -65,22 +65,22 @@ export class PythService {
         }
   
         try {
-          console.log('🔗 Connecting to Pyth Network...');
+          console.log('Connecting to Pyth Network...');
           
           this.connection = new PriceServiceConnection("https://hermes.pyth.network");
           
           // Get all price feeds at once
           const priceIds = Object.values(PYTH_PRICE_IDS);
-          console.log('📋 Price IDs to fetch:', priceIds);
+          console.log('Price IDs to fetch:', priceIds);
           
           const priceFeeds = await this.connection.getLatestPriceFeeds(priceIds);
-          console.log('📦 Raw price feeds received:', priceFeeds?.length || 0);
+          console.log('Raw price feeds received:', priceFeeds?.length || 0);
           
           // Store price feeds
           if (priceFeeds) {
             priceFeeds.forEach(feed => {
               if (!feed) {
-                console.log('❌ Empty feed received');
+                console.log('Empty feed received');
                 return;
               }
               
@@ -92,7 +92,7 @@ export class PythService {
               const confidence = price.confidence !== undefined ? price.confidence : 
                                 price.price * 0.001; // Default to 0.1% of price
               
-              console.log(`💰 Processing ${symbol}:`, {
+              console.log(`Processing ${symbol}:`, {
                 price: price.price,
                 exponent: exponent,
                 confidence: confidence,
@@ -111,16 +111,16 @@ export class PythService {
           }
   
           this.isConnected = true;
-          console.log('✅ Pyth Network connected successfully');
-          console.log(`📊 Loaded ${this.priceFeeds.size} price feeds`);
-          console.log('📝 Available symbols:', Array.from(this.priceFeeds.keys()));
+          console.log('Pyth Network connected successfully');
+          console.log(`Loaded ${this.priceFeeds.size} price feeds`);
+          console.log('Available symbols:', Array.from(this.priceFeeds.keys()));
           
           // Set up periodic updates (every 30 seconds)
           this.startPriceUpdates();
           
         } catch (error) {
-          console.error('❌ Pyth Network initialization failed:', error);
-          console.log('🔧 Falling back to mock price data');
+          console.error('Pyth Network initialization failed:', error);
+          console.log('Falling back to mock price data');
           this.useMock = true;
           this.initializeMockData();
         }
@@ -152,7 +152,7 @@ export class PythService {
     });
 
     this.isConnected = true;
-    console.log('✅ Mock price data initialized');
+    console.log('Mock price data initialized');
     
     // Update mock prices periodically to simulate market movement
     this.startMockUpdates();
@@ -175,7 +175,7 @@ export class PythService {
           });
         }
       });
-      console.log('🔄 Mock prices updated');
+      console.log('Mock prices updated');
     }, 30000);
   }
 
@@ -198,8 +198,8 @@ export class PythService {
       }
     }
     
-    console.log('❌ Unknown price ID:', searchId);
-    console.log('🔍 Available IDs:', Object.values(PYTH_PRICE_IDS).map(id => 
+    console.log('Unknown price ID:', searchId);
+    console.log('Available IDs:', Object.values(PYTH_PRICE_IDS).map(id => 
       id.startsWith('0x') ? id.substring(2) : id
     ));
     return 'UNKNOWN';
@@ -233,9 +233,9 @@ export class PythService {
           });
         });
   
-        console.log('🔄 Pyth prices updated');
+        console.log('Pyth prices updated');
       } catch (error) {
-        console.error('❌ Pyth price update failed:', error);
+        console.error('Pyth price update failed:', error);
       }
     }, 30000);
   }
@@ -244,7 +244,7 @@ export class PythService {
   getPrice(symbol) {
     const feed = this.priceFeeds.get(symbol);
     if (!feed) {
-      console.log(`❌ No price feed found for symbol: ${symbol}`);
+      console.log(`No price feed found for symbol: ${symbol}`);
       return null;
     }
   
@@ -271,11 +271,11 @@ export class PythService {
         isMock: feed.isMock || false
       };
   
-      console.log(`🔍 getPrice(${symbol}):`, priceData);
+      console.log(`getPrice(${symbol}):`, priceData);
       return priceData;
       
     } catch (error) {
-      console.error(`❌ Error processing price for ${symbol}:`, error);
+      console.error(`Error processing price for ${symbol}:`, error);
       return null;
     }
   }

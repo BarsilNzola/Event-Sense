@@ -19,7 +19,6 @@ router.get("/feeds", async (req, res) => {
     await ensureInitialized();
 
     const prices = pythService.getAllPrices();
-    console.log('🔍 /feeds - Returning prices:', prices);
     
     res.json({
       success: true,
@@ -28,7 +27,7 @@ router.get("/feeds", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Price feeds error:", error);
+    console.error("Price feeds error:", error);
     res.status(500).json({
       success: false,
       error: "Failed to fetch price feeds",
@@ -43,7 +42,6 @@ router.get("/feeds-with-changes", async (req, res) => {
     await ensureInitialized();
 
     const prices = pythService.getAllPrices();
-    console.log('🔍 /feeds-with-changes - Raw prices:', prices);
     
     const pricesWithChanges = {};
 
@@ -53,7 +51,7 @@ router.get("/feeds-with-changes", async (req, res) => {
         
         pricesWithChanges[symbol] = {
           price: priceData.price,
-          confidence: priceData.confidence || 0, // Ensure confidence is never NaN
+          confidence: priceData.confidence || 0,
           change: changeData?.change || 0,
           trend: changeData?.trend || 'flat',
           timestamp: priceData.timestamp,
@@ -61,8 +59,6 @@ router.get("/feeds-with-changes", async (req, res) => {
         };
       }
     }
-
-    console.log('🔍 /feeds-with-changes - Processed data:', pricesWithChanges);
     
     res.json({
       success: true,
@@ -71,7 +67,7 @@ router.get("/feeds-with-changes", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Price feeds with changes error:", error);
+    console.error("Price feeds with changes error:", error);
     res.status(500).json({
       success: false,
       error: "Failed to fetch price feeds with changes",
@@ -96,8 +92,6 @@ router.get("/debug", async (req, res) => {
       allPrices,
       rawFeeds
     };
-
-    console.log('🔍 Debug info:', debugInfo);
     
     res.json({
       success: true,
@@ -106,7 +100,7 @@ router.get("/debug", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Debug endpoint error:", error);
+    console.error("Debug endpoint error:", error);
     res.status(500).json({
       success: false,
       error: "Debug endpoint failed",
@@ -128,8 +122,6 @@ router.get("/test-symbols", async (req, res) => {
       const change = pythService.getPriceChange(symbol);
       results[symbol] = { price, change };
     });
-
-    console.log('🔍 Test symbols results:', results);
     
     res.json({ 
       success: true, 
@@ -138,7 +130,7 @@ router.get("/test-symbols", async (req, res) => {
     });
     
   } catch (error) {
-    console.error("❌ Test symbols error:", error);
+    console.error("Test symbols error:", error);
     res.status(500).json({
       success: false,
       error: "Test symbols failed",

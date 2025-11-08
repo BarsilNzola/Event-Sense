@@ -1,4 +1,3 @@
-// components/NewsFeed.jsx
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt, FaRegClock, FaSync } from "react-icons/fa";
 

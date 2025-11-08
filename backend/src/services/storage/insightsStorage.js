@@ -10,7 +10,7 @@ export class InsightsStorage {
   // Store a single insight to IPFS and blockchain
   async storeInsight(insight) {
     try {
-      console.log('💾 Storing insight to IPFS and blockchain...');
+      console.log('Storing insight to IPFS and blockchain...');
       
       // Upload to Lighthouse IPFS
       const cid = await uploadToLighthouse(insight);
@@ -19,12 +19,12 @@ export class InsightsStorage {
         throw new Error('Failed to upload to IPFS');
       }
 
-      console.log('✅ Insight stored on IPFS with CID:', cid);
+      console.log('Insight stored on IPFS with CID:', cid);
       
       // Store CID on blockchain
       try {
         const chainResult = await storeCIDOnChain(cid);
-        console.log('✅ Insight CID stored on blockchain:', chainResult.txHash);
+        console.log('Insight CID stored on blockchain:', chainResult.txHash);
         
         return {
           success: true,
@@ -34,7 +34,7 @@ export class InsightsStorage {
           timestamp: insight.timestamp
         };
       } catch (chainError) {
-        console.error('❌ Failed to store on blockchain, but IPFS succeeded:', chainError.message);
+        console.error('Failed to store on blockchain, but IPFS succeeded:', chainError.message);
         // Still return success since IPFS worked
         return {
           success: true,
@@ -47,7 +47,7 @@ export class InsightsStorage {
       }
 
     } catch (error) {
-      console.error('❌ Insight storage failed:', error.message);
+      console.error('Insight storage failed:', error.message);
       return {
         success: false,
         error: error.message,
