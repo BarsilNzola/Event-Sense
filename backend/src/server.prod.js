@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from 'fs'; // ADD THIS IMPORT
 
 // Get current directory
 const __filename = fileURLToPath(import.meta.url);
@@ -36,8 +37,17 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/prices", priceRoutes);
 app.use("/api/news", newsRoutes);
 
-// Serve static files from vite build
-app.use(express.static(path.join(__dirname, "..", "dist")));
+// DEBUG: Check where dist actually is
+const distPath = path.join(__dirname, "..", "dist");
+console.log('Current directory:', __dirname);
+console.log('Correct dist path:', distPath);
+console.log('Dist exists:', fs.existsSync(distPath));
+if (fs.existsSync(distPath)) {
+  console.log('Files in dist:', fs.readdirSync(distPath));
+}
+
+// Serve static files from vite build - GO UP ONE LEVEL to find dist
+app.use(express.static(distPath));
 
 // Simple health check
 app.get("/health", (req, res) => {
@@ -59,17 +69,13 @@ app.get("/api", (req, res) => res.json({
   }
 }));
 
-console.log('Current directory:', __dirname);
-console.log('Dist path:', path.join(__dirname, "dist"));
-console.log('Dist exists:', require('fs').existsSync(path.join(__dirname, "dist")));
-
 // Handle React routing, return all requests to React app
 app.get("/*", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
+  res.sendFile(path.join(distPath, "index.html"));
 });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Frontend served from: ${path.join(__dirname, "dist")}`);
+  console.log(`Frontend served from: ${distPath}`);
 });
