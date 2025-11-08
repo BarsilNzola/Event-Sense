@@ -59,6 +59,10 @@ app.get("/api", (req, res) => res.json({
   }
 }));
 
+console.log('Current directory:', __dirname);
+console.log('Dist path:', path.join(__dirname, "dist"));
+console.log('Dist exists:', require('fs').existsSync(path.join(__dirname, "dist")));
+
 // Handle React routing, return all requests to React app
 app.get("/*", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
