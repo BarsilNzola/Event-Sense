@@ -24,6 +24,9 @@ COPY --from=backend /app/backend ./backend
 # Copy frontend dist to backend public directory
 COPY --from=frontend /app/frontend/dist ./backend/dist
 
+# Copy smart contracts from project root
+COPY smart-contracts/ ./smart-contracts/
+
 # Copy production server file
 COPY backend/src/server.prod.js ./backend/
 
