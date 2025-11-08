@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { getApiBaseUrl } from '../config/api';
 
 export default function AIAssistant({ markets }) {
   const [query, setQuery] = useState("");
@@ -14,7 +15,7 @@ export default function AIAssistant({ markets }) {
   const fetchInsights = async () => {
     try {
       setInsightsLoading(true);
-      const { data } = await axios.get("http://localhost:5000/api/ai/insights/history");
+      const { data } = await axios.get(`${getApiBaseUrl()}/ai/insights/history`);
       if (data.success) {
         const insightMessages = data.insights.map(insight => ({
           type: 'ai',
@@ -51,7 +52,7 @@ export default function AIAssistant({ markets }) {
     setConversation(prev => [...prev, userMessage]);
     
     try {
-      const { data } = await axios.post("http://localhost:5000/api/ai/query", { question: query });
+      const { data } = await axios.post(`${getApiBaseUrl()}/ai/query`, { question: query });
       const aiMessage = { 
         type: 'ai', 
         content: data.answer,

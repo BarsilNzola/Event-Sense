@@ -5,6 +5,7 @@ import MarketCard from "../components/MarketCard";
 import PriceFeed from "../components/PriceFeed";
 import AIAssistant from "../components/AIAssistant";
 import NewsFeed from "../components/NewsFeed";
+import { getApiBaseUrl } from '../config/api';
 
 export default function Dashboard() {
   const [markets, setMarkets] = useState([]);
@@ -34,7 +35,7 @@ export default function Dashboard() {
 
   const fetchAutoInsights = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/ai/insights/auto");
+      const response = await fetch(`${getApiBaseUrl()}/ai/insights/auto`);
       const data = await response.json();
       return data;
     } catch (error) {

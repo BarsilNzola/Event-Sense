@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FaArrowUp, FaArrowDown, FaSync, FaExclamationTriangle } from "react-icons/fa";
+import { getApiBaseUrl } from '../config/api';
 
 export default function PriceFeed() {
   const [prices, setPrices] = useState({});
@@ -11,7 +12,7 @@ export default function PriceFeed() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch("http://localhost:5000/api/prices/feeds-with-changes");
+      const response = await fetch(`${getApiBaseUrl()}/prices/feeds-with-changes`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

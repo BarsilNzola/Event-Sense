@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: eventsense
+    plan: free
+    docker:
+      dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: GEMINI_API_KEY
+        fromSecret: GEMINI_API_KEY
+      - key: LIGHTHOUSE_API_KEY
+        fromSecret: LIGHTHOUSE_API_KEY
+      - key: BNB_TESTNET_RPC
+        fromSecret: BNB_TESTNET_RPC
+      - key: PRIVATE_KEY
+        fromSecret: PRIVATE_KEY
+      - key: CONTRACT_ADDRESS
+        fromSecret: CONTRACT_ADDRESS
+      - key: VITE_WALLETCONNECT_PROJECT_ID
+        fromSecret: VITE_WALLETCONNECT_PROJECT_ID

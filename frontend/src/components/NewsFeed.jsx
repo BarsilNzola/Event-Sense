@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FaExternalLinkAlt, FaRegClock, FaSync } from "react-icons/fa";
+import { getApiBaseUrl } from '../config/api';
 
 export default function NewsFeed() {
   const [news, setNews] = useState({ articles: [] });
@@ -15,7 +16,7 @@ export default function NewsFeed() {
         setLoading(true);
       }
       
-      const response = await fetch("http://localhost:5000/api/news");
+      const response = await fetch(`${getApiBaseUrl()}/news`);
       const data = await response.json();
       setNews(data);
     } catch (error) {
