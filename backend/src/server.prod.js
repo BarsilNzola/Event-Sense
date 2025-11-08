@@ -70,7 +70,7 @@ app.get("/api", (req, res) => res.json({
 }));
 
 // Handle React routing, return all requests to React app
-app.get("/*", (req, res) => {
+app.get("*", (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
@@ -78,4 +78,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Frontend served from: ${distPath}`);
-});
+}); 
