@@ -27,7 +27,7 @@ COPY --from=frontend /app/frontend/dist ./backend/public
 # Copy production server file
 COPY backend/src/server.prod.js ./backend/
 
-WORKDIR /app/backend
+WORKDIR /app/backend/src
 
 EXPOSE 5000
 
