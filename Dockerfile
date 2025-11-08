@@ -21,8 +21,8 @@ WORKDIR /app
 # Copy backend
 COPY --from=backend /app/backend ./backend
 
-# Copy frontend build to backend public directory
-COPY --from=frontend /app/frontend/build ./backend/public
+# Copy frontend dist to backend public directory
+COPY --from=frontend /app/frontend/dist ./backend/public
 
 # Copy production server file
 COPY backend/src/server.prod.js ./backend/
