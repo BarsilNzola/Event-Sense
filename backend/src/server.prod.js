@@ -36,8 +36,8 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/prices", priceRoutes);
 app.use("/api/news", newsRoutes);
 
-// Serve static files from React build
-app.use(express.static(path.join(__dirname, "public")));
+// Serve static files from vite build
+app.use(express.static(path.join(__dirname, "dist")));
 
 // Simple health check
 app.get("/health", (req, res) => {
@@ -61,11 +61,11 @@ app.get("/api", (req, res) => res.json({
 
 // Handle React routing, return all requests to React app
 app.get("/*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Frontend served from: ${path.join(__dirname, "public")}`);
+  console.log(`Frontend served from: ${path.join(__dirname, "dist")}`);
 });
