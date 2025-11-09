@@ -222,7 +222,7 @@ export default function Dashboard() {
               alignItems: 'center',
               gap: '8px'
             }}>
-              AI Market Analysis
+              Market Analysis
             </h3>
 
             {insightsLoading ? (

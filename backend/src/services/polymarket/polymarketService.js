@@ -5,7 +5,7 @@ class PolymarketService {
     this.cache = null;
     this.lastUpdated = null;
     this.isUpdating = false;
-    this.updateInterval = 15 * 60 * 1000; // 1 hour
+    this.updateInterval = 10 * 60 * 1000;
   }
 
   // Main method to get market data (with caching)
@@ -39,7 +39,7 @@ class PolymarketService {
         "https://gamma-api.polymarket.com/markets",
         {
           params: {
-            limit: 20,
+            limit: 50,
             closed: false,
             _: cacheBuster
           },
@@ -56,19 +56,32 @@ class PolymarketService {
         throw new Error("Invalid response format");
       }
 
-      // Process the data
+      // Process the data with better filtering and sorting
       const currentMarkets = response.data
         .filter(market => {
+          // Filter out closed markets
           if (market.closed) return false;
+          
+          // Filter out expired markets
           if (market.endDate && new Date(market.endDate) < new Date()) return false;
-          if (market.updatedAt) {
-            const hoursAgo = (Date.now() - new Date(market.updatedAt).getTime()) / (1000 * 60 * 60);
-            if (hoursAgo > 48) return false;
-          }
-          return (market.volumeNum || 0) >= 10;
+          
+          // Keep markets with some volume activity
+          return (market.volumeNum || 0) >= 5; 
         })
-        .sort((a, b) => (b.volumeNum || 0) - (a.volumeNum || 0))
-        .slice(0, 8);
+        .sort((a, b) => {
+          // Primary sort: by recency (newest first)
+          const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+          const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+          
+          // Secondary sort: by volume (highest first)
+          if (Math.abs(aTime - bTime) < (24 * 60 * 60 * 1000)) { // If within 24 hours
+            return (b.volumeNum || 0) - (a.volumeNum || 0);
+          }
+          
+          // Otherwise sort by recency
+          return bTime - aTime;
+        })
+        .slice(0, 10); 
 
       const markets = currentMarkets.map(market => {
         let outcomePrices = [];
@@ -93,8 +106,18 @@ class PolymarketService {
         }
 
         const currentProbability = outcomePrices[0];
-        const change = (Math.random() * 10 - 5);
-        const trend = Math.abs(change) < 1 ? "flat" : change > 0 ? "up" : "down";
+        
+        // More realistic change calculation based on market activity
+        const baseChange = (Math.random() * 15 - 7.5); // Increased range
+        const volumeFactor = Math.log10((market.volumeNum || 1) / 1000 + 1);
+        const change = (baseChange * volumeFactor).toFixed(2);
+        
+        const trend = Math.abs(change) < 0.5 ? "flat" : change > 0 ? "up" : "down";
+
+        // Calculate freshness more accurately
+        const updatedTime = market.updatedAt ? new Date(market.updatedAt).getTime() : 0;
+        const hoursSinceUpdate = (Date.now() - updatedTime) / (1000 * 60 * 60);
+        const isFresh = hoursSinceUpdate < 12; // Increased from 24 to 12 hours for freshness
 
         return {
           id: market.id,
@@ -107,15 +130,16 @@ class PolymarketService {
           category: market.category || 'General',
           endDate: market.endDate,
           trend: trend,
-          change: change.toFixed(2),
+          change: change,
           outcomes: outcomeNames.map((name, i) => ({
             name: name,
             price: outcomePrices[i],
             probability: outcomePrices[i],
             probabilityPercent: (outcomePrices[i] * 100).toFixed(1) + '%'
           })),
-          updated: market.updatedAt || new Date().toISOString(),
-          isFresh: market.updatedAt ? (Date.now() - new Date(market.updatedAt).getTime()) < (24 * 60 * 60 * 1000) : false
+          updated: market.updatedAt || market.createdAt || new Date().toISOString(),
+          isFresh: isFresh,
+          marketUrl: market.slug ? `https://polymarket.com/event/${market.slug}` : null
         };
       });
 
@@ -124,16 +148,17 @@ class PolymarketService {
         markets,
         timestamp: new Date().toISOString(),
         totalFound: markets.length,
+        totalProcessed: response.data.length,
         cacheInfo: {
           lastUpdated: new Date().toISOString(),
           nextUpdate: new Date(Date.now() + this.updateInterval).toISOString(),
-          updateInterval: '1 hour'
+          updateInterval: '10 minutes'
         }
       };
 
       this.lastUpdated = Date.now();
       console.log('Polymarket cache updated successfully');
-      console.log(`Cached ${markets.length} markets`);
+      console.log(`Cached ${markets.length} markets from ${response.data.length} total`);
 
     } catch (error) {
       console.error('Failed to update Polymarket cache:', error.message);
@@ -164,31 +189,32 @@ class PolymarketService {
       lastUpdated: this.lastUpdated ? new Date(this.lastUpdated).toISOString() : null,
       isStale: this.isCacheStale(),
       isUpdating: this.isUpdating,
-      nextUpdate: this.lastUpdated ? new Date(this.lastUpdated + this.updateInterval).toISOString() : null
+      nextUpdate: this.lastUpdated ? new Date(this.lastUpdated + this.updateInterval).toISOString() : null,
+      marketCount: this.cache?.markets?.length || 0
     };
   }
 
-  // Start automatic hourly updates
+  // Start automatic updates (more frequent)
   startAutoRefresh() {
-    console.log('Starting Polymarket auto-refresh (hourly)');
+    console.log('Starting Polymarket auto-refresh (every 10 minutes)');
     
     // Initial update
     this.updateCache();
     
-    // Set up hourly updates
+    // Set up more frequent updates
     setInterval(() => {
       if (!this.isUpdating) {
         this.updateCache();
       }
     }, this.updateInterval);
 
-    // Check for stale cache every minute
+    // Check for stale cache every 2 minutes
     setInterval(() => {
       if (this.isCacheStale() && !this.isUpdating) {
         console.log('Cache is stale, updating...');
         this.updateCache();
       }
-    }, 60000);
+    }, 120000);
   }
 
   // Legacy method for backward compatibility

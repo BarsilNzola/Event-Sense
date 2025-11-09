@@ -1,80 +1,9 @@
 import { FaArrowUp, FaArrowDown, FaMinus } from "react-icons/fa";
-import { useEffect, useState } from "react";
-import { getPredictionSummary } from "../services/api";
 
 export default function MarketCard({ market }) {
-  const [marketData, setMarketData] = useState(market);
-  const [loading, setLoading] = useState(!market);
-
-  useEffect(() => {
-    // If no market prop is passed, fetch data directly
-    if (!market) {
-      fetchMarketData();
-    }
-  }, []);
-
-  const fetchMarketData = async () => {
-    try {
-      setLoading(true);
-      const data = await getPredictionSummary();
-      // Use the first market from the response
-      if (data.markets && data.markets.length > 0) {
-        setMarketData(data.markets[0]);
-      }
-    } catch (error) {
-      console.error("Error fetching market data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '16px',
-        padding: '24px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #E0F2F1',
-        textAlign: 'center'
-      }}>
-        <div style={{
-          width: '24px',
-          height: '24px',
-          border: '3px solid #0F9E99',
-          borderTop: '3px solid transparent',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-          margin: '0 auto 16px'
-        }}></div>
-        <p style={{ color: '#98521F', fontSize: '0.875rem' }}>
-          Loading market data...
-        </p>
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  if (!marketData) {
-    return (
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '16px',
-        padding: '24px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #E0F2F1',
-        textAlign: 'center'
-      }}>
-        <p style={{ color: '#98521F', fontSize: '0.875rem' }}>
-          No market data available
-        </p>
-      </div>
-    );
-  }
-
   // Handle flat trend with a minus icon
-  const trendColor = marketData.trend === "up" ? "#10B981" : marketData.trend === "down" ? "#EF4444" : "#6B7280";
-  const probabilityPercent = (marketData.probability * 100).toFixed(1);
+  const trendColor = market.trend === "up" ? "#10B981" : market.trend === "down" ? "#EF4444" : "#6B7280";
+  const probabilityPercent = (market.probability * 100).toFixed(1);
   
   // Format volume/liquidity with better fallbacks
   const formatVolume = (volume) => {
@@ -86,7 +15,7 @@ export default function MarketCard({ market }) {
 
   // Get trend icon
   const getTrendIcon = () => {
-    switch (marketData.trend) {
+    switch (market.trend) {
       case "up": return <FaArrowUp />;
       case "down": return <FaArrowDown />;
       default: return <FaMinus />;
@@ -119,7 +48,7 @@ export default function MarketCard({ market }) {
           flex: 1,
           marginRight: '16px'
         }}>
-          {marketData.question}
+          {market.question}
         </h3>
 
         <div style={{
@@ -131,7 +60,7 @@ export default function MarketCard({ market }) {
           fontSize: '0.875rem'
         }}>
           {getTrendIcon()}
-          {marketData.change}%
+          {market.change}%
         </div>
       </div>
 
@@ -196,7 +125,7 @@ export default function MarketCard({ market }) {
             color: '#4A2B1C',
             fontSize: '0.875rem'
           }}>
-            {formatVolume(marketData.volume)}
+            {formatVolume(market.volume)}
           </div>
         </div>
         <div style={{
@@ -218,7 +147,7 @@ export default function MarketCard({ market }) {
             color: '#4A2B1C',
             fontSize: '0.875rem'
           }}>
-            {formatVolume(marketData.liquidity)}
+            {formatVolume(market.liquidity)}
           </div>
         </div>
       </div>
@@ -237,7 +166,7 @@ export default function MarketCard({ market }) {
           fontWeight: '600',
           color: trendColor
         }}>
-          {marketData.change}%
+          {market.change}%
         </span>
       </div>
 
@@ -252,12 +181,12 @@ export default function MarketCard({ market }) {
       }}>
         <span>Updated</span>
         <span>
-          {marketData.updated ? new Date(marketData.updated).toLocaleTimeString() : 'Recently'}
+          {market.updated ? new Date(market.updated).toLocaleTimeString() : 'Recently'}
         </span>
       </div>
 
       {/* Category */}
-      {marketData.category && marketData.category !== 'General' && (
+      {market.category && market.category !== 'General' && (
         <div style={{
           marginTop: '16px',
           paddingTop: '16px',
@@ -271,7 +200,7 @@ export default function MarketCard({ market }) {
             padding: '4px 12px',
             borderRadius: '9999px'
           }}>
-            {marketData.category}
+            {market.category}
           </span>
         </div>
       )}
