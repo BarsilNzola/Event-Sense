@@ -8,7 +8,6 @@ class PolymarketService {
     this.updateInterval = 10 * 60 * 1000;
   }
 
-  // Main method to get market data (with caching)
   async getMarketData() {
     if (!this.cache || this.isCacheStale()) {
       await this.updateCache();
@@ -16,13 +15,11 @@ class PolymarketService {
     return this.cache;
   }
 
-  // Check if cache is stale
   isCacheStale() {
     if (!this.lastUpdated) return true;
     return Date.now() - this.lastUpdated > this.updateInterval;
   }
 
-  // Update the cache with fresh data
   async updateCache() {
     if (this.isUpdating) {
       console.log('Cache update already in progress, waiting...');
@@ -56,68 +53,85 @@ class PolymarketService {
         throw new Error("Invalid response format");
       }
 
-      // Process the data with better filtering and sorting
+      console.log(`Raw API response: ${response.data.length} markets`);
+
+      // Process the data with proper probability extraction
       const currentMarkets = response.data
         .filter(market => {
-          // Filter out closed markets
           if (market.closed) return false;
-          
-          // Filter out expired markets
           if (market.endDate && new Date(market.endDate) < new Date()) return false;
-          
-          // Keep markets with some volume activity
-          return (market.volumeNum || 0) >= 5; 
+          return (market.volumeNum || 0) >= 5;
         })
         .sort((a, b) => {
-          // Primary sort: by recency (newest first)
           const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
           const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
           
-          // Secondary sort: by volume (highest first)
-          if (Math.abs(aTime - bTime) < (24 * 60 * 60 * 1000)) { // If within 24 hours
+          if (Math.abs(aTime - bTime) < (24 * 60 * 60 * 1000)) {
             return (b.volumeNum || 0) - (a.volumeNum || 0);
           }
-          
-          // Otherwise sort by recency
           return bTime - aTime;
         })
-        .slice(0, 10); 
+        .slice(0, 15);
 
       const markets = currentMarkets.map(market => {
+        console.log(`Processing market: ${market.question}`);
+        console.log('Market data:', {
+          outcomePrices: market.outcomePrices,
+          volumeNum: market.volumeNum,
+          liquidityNum: market.liquidityNum,
+          volume24hr: market.volume24hr
+        });
+
         let outcomePrices = [];
         let outcomeNames = [];
         
         try {
-          if (Array.isArray(market.outcomePrices)) {
+          // EXTRACT ACTUAL PROBABILITIES FROM MARKET DATA
+          if (Array.isArray(market.outcomePrices) && market.outcomePrices.length > 0) {
             outcomePrices = market.outcomePrices.map(price => {
               const num = parseFloat(price);
-              return isNaN(num) ? 0.5 : Math.max(0, Math.min(1, num));
+              return isNaN(num) ? 0 : Math.max(0, Math.min(1, num));
             });
+            
+            // Normalize probabilities to sum to 1
+            const sum = outcomePrices.reduce((total, prob) => total + prob, 0);
+            if (sum > 0) {
+              outcomePrices = outcomePrices.map(prob => prob / sum);
+            } else {
+              outcomePrices = outcomePrices.map(() => 1 / outcomePrices.length);
+            }
           } else {
-            outcomePrices = [0.5, 0.5];
+            // If no outcomePrices, check for other probability indicators
+            outcomePrices = [0.5, 0.5]; // Fallback only if no data
           }
           
           outcomeNames = Array.isArray(market.outcomes) && market.outcomes.length > 0 
             ? market.outcomes 
             : ['Yes', 'No'];
         } catch (error) {
+          console.error(`Error processing market ${market.id}:`, error);
           outcomePrices = [0.5, 0.5];
           outcomeNames = ['Yes', 'No'];
         }
 
         const currentProbability = outcomePrices[0];
         
-        // More realistic change calculation based on market activity
-        const baseChange = (Math.random() * 15 - 7.5); // Increased range
-        const volumeFactor = Math.log10((market.volumeNum || 1) / 1000 + 1);
-        const change = (baseChange * volumeFactor).toFixed(2);
+        // Calculate 24h change based on actual price movement if available
+        let change = 0;
+        if (market.priceChange24hr !== undefined) {
+          change = parseFloat(market.priceChange24hr) || 0;
+        } else {
+          // Fallback to random change if no historical data
+          const baseChange = (Math.random() * 15 - 7.5);
+          const volumeFactor = Math.log10((market.volumeNum || 1) / 1000 + 1);
+          change = parseFloat((baseChange * volumeFactor).toFixed(2));
+        }
         
         const trend = Math.abs(change) < 0.5 ? "flat" : change > 0 ? "up" : "down";
 
-        // Calculate freshness more accurately
         const updatedTime = market.updatedAt ? new Date(market.updatedAt).getTime() : 0;
         const hoursSinceUpdate = (Date.now() - updatedTime) / (1000 * 60 * 60);
-        const isFresh = hoursSinceUpdate < 12; // Increased from 24 to 12 hours for freshness
+        const isFresh = hoursSinceUpdate < 12;
 
         return {
           id: market.id,
@@ -139,7 +153,12 @@ class PolymarketService {
           })),
           updated: market.updatedAt || market.createdAt || new Date().toISOString(),
           isFresh: isFresh,
-          marketUrl: market.slug ? `https://polymarket.com/event/${market.slug}` : null
+          marketUrl: market.slug ? `https://polymarket.com/event/${market.slug}` : null,
+          // Debug info
+          _debug: {
+            rawOutcomePrices: market.outcomePrices,
+            normalizedOutcomePrices: outcomePrices
+          }
         };
       });
 
@@ -159,6 +178,14 @@ class PolymarketService {
       this.lastUpdated = Date.now();
       console.log('Polymarket cache updated successfully');
       console.log(`Cached ${markets.length} markets from ${response.data.length} total`);
+      
+      // Log sample probabilities for debugging
+      if (markets.length > 0) {
+        console.log('Sample market probabilities:');
+        markets.slice(0, 3).forEach(market => {
+          console.log(`- ${market.question}: ${market.probabilityPercent}`);
+        });
+      }
 
     } catch (error) {
       console.error('Failed to update Polymarket cache:', error.message);
@@ -176,13 +203,11 @@ class PolymarketService {
     return this.cache;
   }
 
-  // Force immediate cache update
   async forceRefresh() {
     console.log('Forcing cache refresh...');
     return await this.updateCache();
   }
 
-  // Get cache status
   getCacheStatus() {
     return {
       hasData: !!this.cache,
@@ -194,21 +219,14 @@ class PolymarketService {
     };
   }
 
-  // Start automatic updates (more frequent)
   startAutoRefresh() {
     console.log('Starting Polymarket auto-refresh (every 10 minutes)');
-    
-    // Initial update
     this.updateCache();
-    
-    // Set up more frequent updates
     setInterval(() => {
       if (!this.isUpdating) {
         this.updateCache();
       }
     }, this.updateInterval);
-
-    // Check for stale cache every 2 minutes
     setInterval(() => {
       if (this.isCacheStale() && !this.isUpdating) {
         console.log('Cache is stale, updating...');
@@ -217,12 +235,10 @@ class PolymarketService {
     }, 120000);
   }
 
-  // Legacy method for backward compatibility
   async fetchPolymarketData() {
     const data = await this.getMarketData();
     return data.markets || [];
   }
 }
 
-// Create and export singleton instance
 export const polymarketService = new PolymarketService();
