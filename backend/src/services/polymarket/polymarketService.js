@@ -43,6 +43,7 @@ class PolymarketService {
       });
   
       const data = response.data;
+      console.log("🔍 Sample Polymarket market structure:", JSON.stringify(data[0], null, 2));
       if (!Array.isArray(data)) throw new Error("Invalid response format");
   
       console.log(`Raw API response: ${data.length} markets`);
