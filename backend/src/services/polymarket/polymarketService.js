@@ -77,6 +77,7 @@ class PolymarketService {
         console.log(`Processing market: ${market.question}`);
         console.log('Market data:', {
           outcomePrices: market.outcomePrices,
+          tokens: market.tokens,
           volumeNum: market.volumeNum,
           liquidityNum: market.liquidityNum,
           volume24hr: market.volume24hr
@@ -86,28 +87,78 @@ class PolymarketService {
         let outcomeNames = [];
         
         try {
-          // EXTRACT ACTUAL PROBABILITIES FROM MARKET DATA
+          // METHOD 1: Try to extract from outcomePrices first
           if (Array.isArray(market.outcomePrices) && market.outcomePrices.length > 0) {
             outcomePrices = market.outcomePrices.map(price => {
               const num = parseFloat(price);
               return isNaN(num) ? 0 : Math.max(0, Math.min(1, num));
             });
-            
-            // Normalize probabilities to sum to 1
-            const sum = outcomePrices.reduce((total, prob) => total + prob, 0);
-            if (sum > 0) {
-              outcomePrices = outcomePrices.map(prob => prob / sum);
-            } else {
-              outcomePrices = outcomePrices.map(() => 1 / outcomePrices.length);
-            }
-          } else {
-            // If no outcomePrices, check for other probability indicators
-            outcomePrices = [0.5, 0.5]; // Fallback only if no data
+            console.log(`Method 1 - outcomePrices: ${outcomePrices}`);
           }
           
-          outcomeNames = Array.isArray(market.outcomes) && market.outcomes.length > 0 
-            ? market.outcomes 
-            : ['Yes', 'No'];
+          // METHOD 2: Try to extract from tokens array (most reliable)
+          if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && 
+              Array.isArray(market.tokens)) {
+            outcomePrices = market.tokens.map(token => {
+              // Convert price from cents to probability
+              const price = parseFloat(token.price);
+              if (!isNaN(price) && price > 0) {
+                return Math.max(0, Math.min(1, price / 100));
+              }
+              return 0;
+            });
+            console.log(`Method 2 - tokens prices: ${outcomePrices}`);
+          }
+
+          // METHOD 3: Check for market price field
+          if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && 
+              market.price !== undefined) {
+            const price = parseFloat(market.price);
+            if (!isNaN(price) && price > 0) {
+              outcomePrices = [price / 100, 1 - (price / 100)];
+            }
+            console.log(`Method 3 - market price: ${outcomePrices}`);
+          }
+
+          // METHOD 4: Check for yes/no price fields
+          if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && 
+              (market.yesPrice || market.noPrice)) {
+            const yesPrice = parseFloat(market.yesPrice || 0) / 100;
+            const noPrice = parseFloat(market.noPrice || 0) / 100;
+            if (yesPrice > 0 || noPrice > 0) {
+              outcomePrices = [yesPrice, noPrice];
+            }
+            console.log(`Method 4 - yes/no prices: ${outcomePrices}`);
+          }
+
+          // If all methods failed, use fallback
+          if (!outcomePrices.length || outcomePrices.every(p => p === 0)) {
+            console.log('Using fallback probabilities');
+            outcomePrices = [0.5, 0.5];
+          }
+
+          // Normalize probabilities to sum to 1
+          const sum = outcomePrices.reduce((total, prob) => total + prob, 0);
+          if (sum > 0) {
+            outcomePrices = outcomePrices.map(prob => {
+              const normalized = prob / sum;
+              return parseFloat(normalized.toFixed(4));
+            });
+          } else {
+            outcomePrices = outcomePrices.map(() => 1 / outcomePrices.length);
+          }
+
+          console.log(`Final normalized probabilities: ${outcomePrices}`);
+          
+          // Get outcome names
+          if (Array.isArray(market.outcomes) && market.outcomes.length > 0) {
+            outcomeNames = market.outcomes;
+          } else if (Array.isArray(market.tokens)) {
+            outcomeNames = market.tokens.map(token => token.outcome || 'Outcome');
+          } else {
+            outcomeNames = ['Yes', 'No'];
+          }
+
         } catch (error) {
           console.error(`Error processing market ${market.id}:`, error);
           outcomePrices = [0.5, 0.5];
@@ -120,9 +171,11 @@ class PolymarketService {
         let change = 0;
         if (market.priceChange24hr !== undefined) {
           change = parseFloat(market.priceChange24hr) || 0;
+        } else if (market.tokens && market.tokens[0] && market.tokens[0].priceChange24h !== undefined) {
+          change = parseFloat(market.tokens[0].priceChange24h) || 0;
         } else {
-          // Fallback to random change if no historical data
-          const baseChange = (Math.random() * 15 - 7.5);
+          // Fallback to small random change if no historical data
+          const baseChange = (Math.random() * 10 - 5);
           const volumeFactor = Math.log10((market.volumeNum || 1) / 1000 + 1);
           change = parseFloat((baseChange * volumeFactor).toFixed(2));
         }
@@ -157,7 +210,9 @@ class PolymarketService {
           // Debug info
           _debug: {
             rawOutcomePrices: market.outcomePrices,
-            normalizedOutcomePrices: outcomePrices
+            tokens: market.tokens,
+            normalizedOutcomePrices: outcomePrices,
+            processingMethod: 'enhanced'
           }
         };
       });
@@ -183,7 +238,7 @@ class PolymarketService {
       if (markets.length > 0) {
         console.log('Sample market probabilities:');
         markets.slice(0, 3).forEach(market => {
-          console.log(`- ${market.question}: ${market.probabilityPercent}`);
+          console.log(`- ${market.question}: ${market.probabilityPercent}`, market._debug);
         });
       }
 

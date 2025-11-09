@@ -14,34 +14,64 @@ export default function Dashboard() {
   const [autoInsights, setAutoInsights] = useState(null);
   const [insightsLoading, setInsightsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [marketData, insightsData] = await Promise.all([
-          getPredictionSummary(),
-          fetchAutoInsights()
-        ]);
-        setMarkets(marketData.markets || []);
-        setAutoInsights(insightsData);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-      } finally {
-        setLoading(false);
-        setInsightsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
+  // Fetch auto insights function
   const fetchAutoInsights = async () => {
     try {
+      setInsightsLoading(true);
       const response = await fetch(`${getApiBaseUrl()}/ai/insights/auto`);
       const data = await response.json();
+      setAutoInsights(data);
       return data;
     } catch (error) {
       console.error("Error fetching auto insights:", error);
       return null;
+    } finally {
+      setInsightsLoading(false);
     }
+  };
+
+  // Fetch market data function
+  const fetchMarketData = async () => {
+    try {
+      const marketData = await getPredictionSummary();
+      setMarkets(marketData.markets || []);
+    } catch (err) {
+      console.error("Error fetching market data:", err);
+    }
+  };
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        await Promise.all([
+          fetchMarketData(),
+          fetchAutoInsights()
+        ]);
+      } catch (err) {
+        console.error("Error fetching initial data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchInitialData();
+
+    // Set up interval to refresh insights every 15 minutes (900000 ms)
+    const insightsInterval = setInterval(fetchAutoInsights, 900000);
+    
+    // Set up interval to refresh market data every 5 minutes (optional)
+    const marketInterval = setInterval(fetchMarketData, 300000);
+
+    // Cleanup intervals on component unmount
+    return () => {
+      clearInterval(insightsInterval);
+      clearInterval(marketInterval);
+    };
+  }, []);
+
+  // Manual refresh function for insights
+  const refreshInsights = async () => {
+    await fetchAutoInsights();
   };
 
   if (loading) {
@@ -211,19 +241,69 @@ export default function Dashboard() {
             borderRadius: '16px',
             padding: '24px',
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-            border: '1px solid #E0F2F1'
+            border: '1px solid #E0F2F1',
+            position: 'relative'
           }}>
-            <h3 style={{
-              fontSize: '1.25rem',
-              fontWeight: '600',
-              color: '#0F9E99',
-              marginBottom: '16px',
+            {/* Header with refresh button */}
+            <div style={{
               display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
-              gap: '8px'
+              marginBottom: '16px'
             }}>
-              Market Analysis
-            </h3>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontWeight: '600',
+                color: '#0F9E99',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                margin: 0
+              }}>
+                Market Analysis
+                {!insightsLoading && autoInsights?.timestamp && (
+                  <span style={{
+                    fontSize: '0.7rem',
+                    color: '#6B7280',
+                    fontWeight: '400'
+                  }}>
+                    (Updated: {new Date(autoInsights.timestamp).toLocaleTimeString()})
+                  </span>
+                )}
+              </h3>
+              
+              <button
+                onClick={refreshInsights}
+                disabled={insightsLoading}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #0F9E99',
+                  backgroundColor: 'transparent',
+                  color: '#0F9E99',
+                  fontSize: '0.75rem',
+                  fontWeight: '600',
+                  cursor: insightsLoading ? 'not-allowed' : 'pointer',
+                  opacity: insightsLoading ? 0.6 : 1,
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => !insightsLoading && (e.target.style.backgroundColor = '#E0F2F1')}
+                onMouseOut={(e) => !insightsLoading && (e.target.style.backgroundColor = 'transparent')}
+              >
+                {insightsLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+
+            {/* Auto-refresh indicator */}
+            <div style={{
+              fontSize: '0.7rem',
+              color: '#6B7280',
+              textAlign: 'center',
+              marginBottom: '12px',
+              fontStyle: 'italic'
+            }}>
+              Auto-refreshes every 15 minutes
+            </div>
 
             {insightsLoading ? (
               <div style={{ textAlign: 'center', padding: '20px' }}>
@@ -297,7 +377,7 @@ export default function Dashboard() {
                     borderTop: '1px solid #E5E7EB',
                     paddingTop: '12px'
                   }}>
-                    Updated: {new Date(autoInsights.timestamp).toLocaleTimeString()}
+                    Last updated: {new Date(autoInsights.timestamp).toLocaleString()}
                   </div>
                 )}
               </div>
