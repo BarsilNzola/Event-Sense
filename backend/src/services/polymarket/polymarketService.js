@@ -32,25 +32,22 @@ class PolymarketService {
   
     try {
       const cacheBuster = Date.now();
-      const response = await axios.get(
-        "https://gamma-api.polymarket.com/markets",
-        {
-          params: { limit: 50, closed: false, _: cacheBuster },
-          timeout: 15000,
-          headers: {
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-          }
+      const response = await axios.get("https://gamma-api.polymarket.com/markets", {
+        params: { limit: 50, closed: false, _: cacheBuster },
+        timeout: 15000,
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         }
-      );
+      });
   
       const data = response.data;
       if (!Array.isArray(data)) throw new Error("Invalid response format");
   
       console.log(`Raw API response: ${data.length} markets`);
   
-      // Filter and sort
+      // Filter & sort relevant markets
       const currentMarkets = data
         .filter(m => !m.closed && (!m.endDate || new Date(m.endDate) > new Date()))
         .filter(m => (m.volumeNum || 0) >= 5)
@@ -69,62 +66,45 @@ class PolymarketService {
         let outcomeNames = [];
   
         try {
-          // 1. outcomePrices field
-          if (Array.isArray(market.outcomePrices) && market.outcomePrices.length > 0) {
+          // outcomes array
+          if (Array.isArray(market.outcomes) && market.outcomes.length > 0) {
+            outcomeNames = market.outcomes.map(o => o.name || "Outcome");
+            outcomePrices = market.outcomes.map(o => {
+              const price = parseFloat(o.price ?? o.lastPrice ?? o.bestBid ?? 0.5);
+              return price > 1 ? price / 100 : price;
+            });
+          }
+  
+          // Legacy structure (fallbacks)
+          if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && Array.isArray(market.outcomePrices)) {
             outcomePrices = market.outcomePrices.map(p => {
               const n = parseFloat(p);
-              return !isNaN(n) && n > 0 && n <= 1 ? n : 0;
+              return !isNaN(n) && n > 0 && n <= 1 ? n : 0.5;
             });
           }
   
-          // 2. tokens array
           if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && Array.isArray(market.tokens)) {
+            outcomeNames = market.tokens.map(t => t.outcome || "Outcome");
             outcomePrices = market.tokens.map(t => {
               const n = parseFloat(t.price);
-              if (isNaN(n)) return 0;
-              // Polymarket usually reports in 0–1 scale, but handle 0–100 too
-              return n > 1 ? n / 100 : n;
+              return !isNaN(n) ? (n > 1 ? n / 100 : n) : 0.5;
             });
           }
   
-          // 3. price field
-          if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && market.price !== undefined) {
-            const p = parseFloat(market.price);
-            if (!isNaN(p)) {
-              const normalized = p > 1 ? p / 100 : p;
-              outcomePrices = [normalized, 1 - normalized];
-            }
-          }
-  
-          // 4. yes/no fields
+          // yes/no direct price fields
           if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && (market.yesPrice || market.noPrice)) {
-            const yes = parseFloat(market.yesPrice || 0);
-            const no = parseFloat(market.noPrice || 0);
-            const normalizedYes = yes > 1 ? yes / 100 : yes;
-            const normalizedNo = no > 1 ? no / 100 : no;
-            outcomePrices = [normalizedYes, normalizedNo];
+            const yes = parseFloat(market.yesPrice || 0.5);
+            const no = parseFloat(market.noPrice || (1 - yes));
+            outcomePrices = [yes > 1 ? yes / 100 : yes, no > 1 ? no / 100 : no];
+            outcomeNames = ["Yes", "No"];
           }
   
-          // fallback
-          if (!outcomePrices.length || outcomePrices.every(p => p === 0)) {
-            outcomePrices = [0.5, 0.5];
-          }
-  
-          // normalize
+          // normalize to sum = 1
           const sum = outcomePrices.reduce((a, b) => a + b, 0);
           if (sum > 0) {
             outcomePrices = outcomePrices.map(p => parseFloat((p / sum).toFixed(4)));
           } else {
-            outcomePrices = outcomePrices.map(() => 1 / outcomePrices.length);
-          }
-  
-          // outcome names
-          if (Array.isArray(market.outcomes) && market.outcomes.length > 0) {
-            outcomeNames = market.outcomes;
-          } else if (Array.isArray(market.tokens)) {
-            outcomeNames = market.tokens.map(t => t.outcome || "Outcome");
-          } else {
-            outcomeNames = ["Yes", "No"];
+            outcomePrices = [0.5, 0.5];
           }
   
         } catch (err) {
@@ -133,7 +113,8 @@ class PolymarketService {
           outcomeNames = ["Yes", "No"];
         }
   
-        const currentProbability = outcomePrices[0];
+        // probability from "Yes" outcome
+        const currentProbability = outcomePrices[0] || 0.5;
   
         // derive 24h change
         let change = 0;
@@ -154,14 +135,12 @@ class PolymarketService {
   
         return {
           id: market.id,
-          question: market.question,
+          question: market.question || market.title || "Untitled Market",
           probability: currentProbability,
           probabilityPercent: (currentProbability * 100).toFixed(1) + "%",
           volume: market.volumeNum || 0,
-          volume24h: market.volume24hr || 0,
           liquidity: market.liquidityNum || 0,
           category: market.category || "General",
-          endDate: market.endDate,
           trend,
           change,
           outcomes: outcomeNames.map((name, i) => ({
@@ -174,9 +153,8 @@ class PolymarketService {
           isFresh,
           marketUrl: market.slug ? `https://polymarket.com/event/${market.slug}` : null,
           _debug: {
-            rawOutcomePrices: market.outcomePrices,
-            tokens: market.tokens,
-            normalizedOutcomePrices: outcomePrices
+            rawOutcomes: market.outcomes,
+            normalizedPrices: outcomePrices
           }
         };
       });
@@ -196,12 +174,9 @@ class PolymarketService {
   
       this.lastUpdated = Date.now();
       console.log(`Polymarket cache updated successfully with ${markets.length} markets`);
-      if (markets.length) {
-        console.log("Sample market probabilities:");
-        markets.slice(0, 3).forEach(m =>
-          console.log(`- ${m.question}: ${m.probabilityPercent}`)
-        );
-      }
+      markets.slice(0, 3).forEach(m =>
+        console.log(`- ${m.question}: ${m.probabilityPercent}`)
+      );
   
     } catch (error) {
       console.error("Failed to update Polymarket cache:", error.message);
@@ -217,7 +192,7 @@ class PolymarketService {
     }
   
     return this.cache;
-  }  
+  }   
 
   async forceRefresh() {
     console.log('Forcing cache refresh...');
