@@ -43,15 +43,16 @@ class PolymarketService {
       });
   
       const data = response.data;
-      console.log("🔍 Sample Polymarket market structure:", JSON.stringify(data[0], null, 2));
       if (!Array.isArray(data)) throw new Error("Invalid response format");
   
       console.log(`Raw API response: ${data.length} markets`);
   
-      // Filter & sort relevant markets
+      // NB: you can change sort / filter to pick latest/popular markets:
+      // e.g. add params: order: "volumeNum.desc" or use server-side ordering via the API
       const currentMarkets = data
         .filter(m => !m.closed && (!m.endDate || new Date(m.endDate) > new Date()))
-        .filter(m => (m.volumeNum || 0) >= 5)
+        // Removed strict volume filter so you can see fresh markets; re-enable if needed
+        //.filter(m => (m.volumeNum || 0) >= 5)
         .sort((a, b) => {
           const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
           const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
@@ -62,86 +63,152 @@ class PolymarketService {
         })
         .slice(0, 15);
   
-      const markets = currentMarkets.map(market => {
+      const markets = await Promise.all(currentMarkets.map(async market => {
         let outcomePrices = [];
         let outcomeNames = [];
   
         try {
-          // outcomes array
-          if (Array.isArray(market.outcomes) && market.outcomes.length > 0) {
-            outcomeNames = market.outcomes.map(o => o.name || "Outcome");
-            outcomePrices = market.outcomes.map(o => {
-              const price = parseFloat(o.price ?? o.lastPrice ?? o.bestBid ?? 0.5);
-              return price > 1 ? price / 100 : price;
-            });
+          // 1) outcomes/or outcomePrices might be JSON strings, parse if needed
+          if (typeof market.outcomes === "string") {
+            try {
+              const parsed = JSON.parse(market.outcomes);
+              if (Array.isArray(parsed)) outcomeNames = parsed;
+            } catch (e) {
+              // leave outcomeNames for later
+            }
+          } else if (Array.isArray(market.outcomes)) {
+            outcomeNames = market.outcomes.map(o => (typeof o === "string" ? o : (o.name || "Outcome")));
           }
   
-          // Legacy structure (fallbacks)
-          if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && Array.isArray(market.outcomePrices)) {
+          if (typeof market.outcomePrices === "string") {
+            try {
+              const parsedPrices = JSON.parse(market.outcomePrices);
+              if (Array.isArray(parsedPrices)) {
+                outcomePrices = parsedPrices.map(p => {
+                  const n = parseFloat(p);
+                  return isNaN(n) ? 0 : (n > 1 ? n / 100 : n);
+                });
+              }
+            } catch (e) {
+              // ignore parse error
+            }
+          } else if (Array.isArray(market.outcomePrices)) {
             outcomePrices = market.outcomePrices.map(p => {
               const n = parseFloat(p);
-              return !isNaN(n) && n > 0 && n <= 1 ? n : 0.5;
+              return isNaN(n) ? 0 : (n > 1 ? n / 100 : n);
             });
           }
   
+          // 2) If market.outcomes is an array of objects with price fields (newer schema)
+          if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && Array.isArray(market.outcomes)) {
+            // outcomes might be objects: [{ name: "Yes", price: "0.12" }, ...]
+            const maybePrices = market.outcomes.map(o => {
+              if (o == null) return 0;
+              const priceField = o.price ?? o.lastPrice ?? o.bestBid ?? o.bestAsk ?? o.midPrice;
+              const n = parseFloat(priceField);
+              return isNaN(n) ? 0 : (n > 1 ? n / 100 : n);
+            }).filter(p => !isNaN(p));
+            if (maybePrices.length) {
+              outcomePrices = maybePrices;
+              outcomeNames = market.outcomes.map(o => (o?.name ?? "Outcome"));
+            }
+          }
+  
+          // 3) tokens array (if present) — tokens often include price fields
           if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && Array.isArray(market.tokens)) {
-            outcomeNames = market.tokens.map(t => t.outcome || "Outcome");
-            outcomePrices = market.tokens.map(t => {
-              const n = parseFloat(t.price);
-              return !isNaN(n) ? (n > 1 ? n / 100 : n) : 0.5;
-            });
+            outcomeNames = outcomeNames.length ? outcomeNames : market.tokens.map(t => t.outcome || "Outcome");
+            const tokenPrices = market.tokens.map(t => {
+              const n = parseFloat(t.last_price ?? t.price ?? t.lastPrice ?? t.midPrice ?? 0);
+              return isNaN(n) ? 0 : (n > 1 ? n / 100 : n);
+            }).filter(p => !isNaN(p));
+            if (tokenPrices.length) outcomePrices = tokenPrices;
           }
   
-          // yes/no direct price fields
-          if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && (market.yesPrice || market.noPrice)) {
-            const yes = parseFloat(market.yesPrice || 0.5);
-            const no = parseFloat(market.noPrice || (1 - yes));
-            outcomePrices = [yes > 1 ? yes / 100 : yes, no > 1 ? no / 100 : no];
-            outcomeNames = ["Yes", "No"];
+          // 4) lastTradePrice / bestBid / bestAsk — use if we still don't have outcomePrices
+          if ((!outcomePrices.length || outcomePrices.every(p => p === 0))) {
+            // lastTradePrice might represent the price for the 'Yes' outcome in some markets
+            if (market.lastTradePrice && parseFloat(market.lastTradePrice) > 0) {
+              const p = parseFloat(market.lastTradePrice);
+              outcomePrices = [p > 1 ? p / 100 : p, 1 - (p > 1 ? p / 100 : p)];
+              outcomeNames = outcomeNames.length ? outcomeNames : ["Yes", "No"];
+            } else if (market.bestBid || market.bestAsk) {
+              // convert bestBid/bestAsk into a mid price
+              const bid = parseFloat(market.bestBid) || 0;
+              const ask = parseFloat(market.bestAsk) || 0;
+              if (bid > 0 || ask > 0) {
+                // If bestBid is for Yes side and bestAsk for Yes or vice versa depends on schema,
+                // use mid-point as best-effort estimate (and convert scale)
+                const mid = (bid && ask) ? ((bid + ask) / 2) : (bid || ask);
+                const midNorm = mid > 1 ? mid / 100 : mid;
+                outcomePrices = [midNorm, 1 - midNorm];
+                outcomeNames = outcomeNames.length ? outcomeNames : ["Yes", "No"];
+              }
+            }
           }
   
-          // normalize to sum = 1
+          // 5) Optional: call pricing CLOB endpoint if clobTokenIds exist (uncomment to enable)
+          if ((!outcomePrices.length || outcomePrices.every(p => p === 0)) && market.clobTokenIds) {
+            try {
+              // POST to clob price endpoint to get best bid/ask by token id
+              const tokenIds = Array.isArray(market.clobTokenIds) ? market.clobTokenIds : [market.clobTokenIds];
+              const clobResp = await axios.post("https://clob.polymarket.com/price", { token_id: tokenIds[0], side: "BUY" });
+              const clobPrice = parseFloat(clobResp.data?.price);
+              if (!isNaN(clobPrice)) {
+                const p = clobPrice > 1 ? clobPrice / 100 : clobPrice;
+                outcomePrices = [p, 1 - p];
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
+  
+          // 6) If still no prices, fallback to 50/50 but log for debugging
+          if (!outcomePrices.length || outcomePrices.every(p => p === 0 || isNaN(p))) {
+            console.warn(`No usable price found for market id=${market.id}, title="${market.question || market.title || market.slug}". Falling back to 50/50.`);
+            outcomePrices = [0.5, 0.5];
+            outcomeNames = outcomeNames.length ? outcomeNames : (Array.isArray(market.outcomes) ? market.outcomes.map(o => (typeof o === 'string' ? o : (o.name || 'Outcome'))) : ['Yes','No']);
+          }
+  
+          // Normalize so sum = 1
           const sum = outcomePrices.reduce((a, b) => a + b, 0);
           if (sum > 0) {
             outcomePrices = outcomePrices.map(p => parseFloat((p / sum).toFixed(4)));
           } else {
-            outcomePrices = [0.5, 0.5];
+            const fallback = 1 / outcomePrices.length;
+            outcomePrices = outcomePrices.map(() => parseFloat(fallback.toFixed(4)));
           }
   
         } catch (err) {
           console.error(`Error processing market ${market.id}:`, err);
           outcomePrices = [0.5, 0.5];
-          outcomeNames = ["Yes", "No"];
+          outcomeNames = outcomeNames.length ? outcomeNames : ['Yes', 'No'];
         }
   
-        // probability from "Yes" outcome
         const currentProbability = outcomePrices[0] || 0.5;
   
-        // derive 24h change
+        // derive 24h change if available
         let change = 0;
-        if (market.priceChange24hr !== undefined) {
+        if (market.oneDayPriceChange !== undefined) {
+          change = parseFloat(market.oneDayPriceChange) || 0;
+        } else if (market.priceChange24hr !== undefined) {
           change = parseFloat(market.priceChange24hr) || 0;
-        } else if (market.tokens?.[0]?.priceChange24h !== undefined) {
-          change = parseFloat(market.tokens[0].priceChange24h) || 0;
-        } else {
-          const base = Math.random() * 10 - 5;
-          const volFactor = Math.log10((market.volumeNum || 1) / 1000 + 1);
-          change = parseFloat((base * volFactor).toFixed(2));
         }
   
         const trend = Math.abs(change) < 0.5 ? "flat" : change > 0 ? "up" : "down";
         const updatedTime = new Date(market.updatedAt || market.createdAt || 0).getTime();
-        const hoursSinceUpdate = (Date.now() - updatedTime) / (1000 * 60 * 60);
+        const hoursSinceUpdate = isFinite(updatedTime) && updatedTime > 0 ? (Date.now() - updatedTime) / (1000 * 60 * 60) : Infinity;
         const isFresh = hoursSinceUpdate < 12;
   
         return {
           id: market.id,
-          question: market.question || market.title || "Untitled Market",
+          question: market.question || market.title || market.slug || "Untitled Market",
           probability: currentProbability,
           probabilityPercent: (currentProbability * 100).toFixed(1) + "%",
-          volume: market.volumeNum || 0,
-          liquidity: market.liquidityNum || 0,
+          volume: market.volumeNum || market.volume24hr || market.volume || 0,
+          volume24h: market.volume24hr || 0,
+          liquidity: market.liquidityNum || market.liquidity || 0,
           category: market.category || "General",
+          endDate: market.endDate,
           trend,
           change,
           outcomes: outcomeNames.map((name, i) => ({
@@ -155,10 +222,15 @@ class PolymarketService {
           marketUrl: market.slug ? `https://polymarket.com/event/${market.slug}` : null,
           _debug: {
             rawOutcomes: market.outcomes,
+            rawOutcomePrices: market.outcomePrices,
+            lastTradePrice: market.lastTradePrice,
+            bestBid: market.bestBid,
+            bestAsk: market.bestAsk,
+            clobTokenIds: market.clobTokenIds || null,
             normalizedPrices: outcomePrices
           }
         };
-      });
+      }));
   
       this.cache = {
         summary: `Current prediction markets from Polymarket (${markets.length} markets)`,
@@ -175,12 +247,10 @@ class PolymarketService {
   
       this.lastUpdated = Date.now();
       console.log(`Polymarket cache updated successfully with ${markets.length} markets`);
-      markets.slice(0, 3).forEach(m =>
-        console.log(`- ${m.question}: ${m.probabilityPercent}`)
-      );
+      markets.slice(0, 3).forEach(m => console.log(`- ${m.question}: ${m.probabilityPercent}`, m._debug));
   
     } catch (error) {
-      console.error("Failed to update Polymarket cache:", error.message);
+      console.error("Failed to update Polymarket cache:", error?.response?.data || error?.message || error);
       if (!this.cache) {
         this.cache = {
           markets: [],
@@ -193,7 +263,7 @@ class PolymarketService {
     }
   
     return this.cache;
-  }   
+  }     
 
   async forceRefresh() {
     console.log('Forcing cache refresh...');
