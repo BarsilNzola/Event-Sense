@@ -7,10 +7,7 @@ import { readFileSync } from "fs";
 // Resolve the root directory (where .env is)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const envPath = path.resolve(__dirname, "../../../.env");
-
-// Load .env from root directory
-dotenv.config({ path: envPath });
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
 const RPC = process.env.BNB_TESTNET_RPC;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
