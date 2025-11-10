@@ -18,7 +18,7 @@ if (!RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
 }
 
 // Read the ABI file directly
-const contractPath = path.resolve(__dirname, "../../../../smart-contracts/artifacts/contracts/EventSenseStorage.sol/EventSenseStorage.json");
+const contractPath = path.resolve(__dirname, "../../../smart-contracts/artifacts/contracts/EventSenseStorage.sol/EventSenseStorage.json");
 let EventSenseStorageArtifact;
 let provider, wallet, contract;
 
