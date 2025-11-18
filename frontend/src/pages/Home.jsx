@@ -33,33 +33,6 @@ export default function Home() {
         </Link>
       </div>
 
-      {/* Features Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mt-20">
-        <div className="text-center p-6">
-          <div className="w-12 h-12 bg-[#0F9E99] rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-lg"></span>
-          </div>
-          <h3 className="font-semibold text-[#0F9E99] mb-2">AI Analysis</h3>
-          <p className="text-[#98521F] text-sm">Advanced AI processes market data</p>
-        </div>
-
-        <div className="text-center p-6">
-          <div className="w-12 h-12 bg-[#0F9E99] rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-lg"></span>
-          </div>
-          <h3 className="font-semibold text-[#0F9E99] mb-2">On-Chain Storage</h3>
-          <p className="text-[#98521F] text-sm">Insights permanently verified</p>
-        </div>
-
-        <div className="text-center p-6">
-          <div className="w-12 h-12 bg-[#0F9E99] rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-lg"></span>
-          </div>
-          <h3 className="font-semibold text-[#0F9E99] mb-2">Live Markets</h3>
-          <p className="text-[#98521F] text-sm">Real-time prediction data</p>
-        </div>
-      </div>
-
       {/* Footer Note */}
       <div className="mt-16 text-sm text-[#6B7280]">
         <p>Powered by decentralized AI and blockchain technology</p>
