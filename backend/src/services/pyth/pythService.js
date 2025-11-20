@@ -48,57 +48,47 @@ export class PythService {
     constructor() {
       this.connection = null;
       this.priceFeeds = new Map();
+      this.priceHistory = new Map();
       this.isConnected = false;
       this.useMock = false;
-      this.initializationPromise = null; // Track initialization
+      this.initializationPromise = null;
     }
   
     async initialize() {
-      // Prevent multiple initializations
       if (this.initializationPromise) {
         return this.initializationPromise;
       }
-  
+
       this.initializationPromise = (async () => {
         if (this.useMock || this.isConnected) {
-          return; // Already initialized or using mock
+          return;
         }
-  
+
         try {
           console.log('Connecting to Pyth Network...');
           
           this.connection = new PriceServiceConnection("https://hermes.pyth.network");
           
-          // Get all price feeds at once
           const priceIds = Object.values(PYTH_PRICE_IDS);
           console.log('Price IDs to fetch:', priceIds);
           
           const priceFeeds = await this.connection.getLatestPriceFeeds(priceIds);
           console.log('Raw price feeds received:', priceFeeds?.length || 0);
           
-          // Store price feeds
           if (priceFeeds) {
             priceFeeds.forEach(feed => {
-              if (!feed) {
-                console.log('Empty feed received');
-                return;
-              }
+              if (!feed) return;
               
               const price = feed.getPriceUnchecked();
               const symbol = this.getSymbolFromPriceId(feed.id);
               
-              // Handle undefined values with sensible defaults
               const exponent = price.exponent !== undefined ? price.exponent : -8;
               const confidence = price.confidence !== undefined ? price.confidence : 
-                                price.price * 0.001; // Default to 0.1% of price
+                                price.price * 0.001;
               
-              console.log(`Processing ${symbol}:`, {
-                price: price.price,
-                exponent: exponent,
-                confidence: confidence,
-                timestamp: price.publishTime
-              });
+              const actualPrice = Number(price.price) * Math.pow(10, exponent);
               
+              // Store current price
               this.priceFeeds.set(symbol, {
                 price: price.price,
                 confidence: confidence,
@@ -107,15 +97,16 @@ export class PythService {
                 symbol: symbol,
                 isMock: false
               });
+
+              // Initialize price history
+              this.initializePriceHistory(symbol, actualPrice, price.publishTime);
             });
           }
-  
+
           this.isConnected = true;
           console.log('Pyth Network connected successfully');
           console.log(`Loaded ${this.priceFeeds.size} price feeds`);
-          console.log('Available symbols:', Array.from(this.priceFeeds.keys()));
           
-          // Set up periodic updates (every 30 seconds)
           this.startPriceUpdates();
           
         } catch (error) {
@@ -125,11 +116,107 @@ export class PythService {
           this.initializeMockData();
         }
       })();
-  
+
       return this.initializationPromise;
     }
 
-  // Initialize mock data for demo purposes
+  // Initialize price history for a symbol
+  initializePriceHistory(symbol, currentPrice, timestamp) {
+    if (!this.priceHistory.has(symbol)) {
+      this.priceHistory.set(symbol, {
+        current: currentPrice,
+        '1h': currentPrice, // Will be updated as we get more data
+        '24h': currentPrice,
+        timestamps: {
+          current: timestamp,
+          '1h': timestamp,
+          '24h': timestamp
+        },
+        history: [] // Store price points for more accurate calculations
+      });
+    }
+  }
+
+  // Update price history with new price
+  updatePriceHistory(symbol, newPrice, timestamp) {
+    if (!this.priceHistory.has(symbol)) {
+      this.initializePriceHistory(symbol, newPrice, timestamp);
+      return;
+    }
+
+    const history = this.priceHistory.get(symbol);
+    const now = Math.floor(Date.now() / 1000);
+    const oneHourAgo = now - 3600;
+    const twentyFourHoursAgo = now - 86400;
+
+    // Update current price
+    const oldPrice = history.current;
+    history.current = newPrice;
+    history.timestamps.current = timestamp;
+
+    // Add to history array (keep last 100 data points)
+    history.history.push({
+      price: newPrice,
+      timestamp: timestamp
+    });
+
+    // Keep only last 100 entries
+    if (history.history.length > 100) {
+      history.history = history.history.slice(-100);
+    }
+
+    // Update 1h price if we have data from 1 hour ago
+    const oneHourPrice = this.findHistoricalPrice(history.history, oneHourAgo);
+    if (oneHourPrice !== null) {
+      history['1h'] = oneHourPrice;
+      history.timestamps['1h'] = oneHourPrice.timestamp;
+    }
+
+    // Update 24h price if we have data from 24 hours ago
+    const twentyFourHourPrice = this.findHistoricalPrice(history.history, twentyFourHoursAgo);
+    if (twentyFourHourPrice !== null) {
+      history['24h'] = twentyFourHourPrice;
+      history.timestamps['24h'] = twentyFourHourPrice.timestamp;
+    }
+
+    console.log(`Price history updated for ${symbol}: ${oldPrice} -> ${newPrice}`);
+  }
+
+  // Find historical price closest to a specific timestamp
+  findHistoricalPrice(history, targetTimestamp) {
+    if (history.length === 0) return null;
+
+    // Find the price point closest to the target timestamp
+    let closest = history[0];
+    let minDiff = Math.abs(history[0].timestamp - targetTimestamp);
+
+    for (const point of history) {
+      const diff = Math.abs(point.timestamp - targetTimestamp);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = point;
+      }
+    }
+
+    // Only return if within reasonable time window (15 minutes)
+    return Math.abs(closest.timestamp - targetTimestamp) <= 900 ? closest.price : null;
+  }
+
+  // Calculate price change percentage
+  calculatePriceChange(currentPrice, previousPrice) {
+    if (!previousPrice || previousPrice === 0) return 0;
+    
+    const change = ((currentPrice - previousPrice) / previousPrice) * 100;
+    return parseFloat(change.toFixed(2));
+  }
+
+  // Get price trend based on change percentage
+  getPriceTrend(change) {
+    if (Math.abs(change) < 0.1) return 'flat';
+    return change > 0 ? 'up' : 'down';
+  }
+
+  // Initialize mock data
   initializeMockData() {
     const mockPrices = {
       BTC: 45000 + Math.random() * 5000,
@@ -141,67 +228,63 @@ export class PythService {
     };
 
     Object.entries(PYTH_PRICE_IDS).forEach(([symbol]) => {
+      const price = Math.floor(mockPrices[symbol] * 1e6);
       this.priceFeeds.set(symbol, {
-        price: Math.floor(mockPrices[symbol] * 1e6), // Simulate 6 decimal places
-        confidence: Math.floor(mockPrices[symbol] * 10), // Small confidence interval
-        exponent: -6, // 6 decimal places
+        price: price,
+        confidence: Math.floor(mockPrices[symbol] * 10),
+        exponent: -6,
         timestamp: Math.floor(Date.now() / 1000),
         symbol: symbol,
         isMock: true
       });
+
+      // Initialize mock history with realistic changes
+      this.initializeMockHistory(symbol, mockPrices[symbol]);
     });
 
     this.isConnected = true;
     console.log('Mock price data initialized');
-    
-    // Update mock prices periodically to simulate market movement
     this.startMockUpdates();
   }
 
-  // Update mock prices to simulate market movement
-  startMockUpdates() {
-    setInterval(() => {
-      this.priceFeeds.forEach((feed, symbol) => {
-        if (feed.isMock && symbol !== 'USDC' && symbol !== 'DAI') {
-          // Simulate small price movements
-          const change = (Math.random() - 0.5) * 0.02; // ±1% change
-          const currentPrice = Number(feed.price) * Math.pow(10, feed.exponent);
-          const newPrice = currentPrice * (1 + change);
-          
-          this.priceFeeds.set(symbol, {
-            ...feed,
-            price: Math.floor(newPrice * Math.pow(10, -feed.exponent)),
-            timestamp: Math.floor(Date.now() / 1000)
-          });
-        }
-      });
-      console.log('Mock prices updated');
-    }, 30000);
+  // Initialize realistic mock history
+  initializeMockHistory(symbol, currentPrice) {
+    const now = Math.floor(Date.now() / 1000);
+    const basePrice = currentPrice * (0.9 + Math.random() * 0.2); // ±10% variation
+    
+    this.priceHistory.set(symbol, {
+      current: currentPrice,
+      '1h': basePrice * (0.995 + Math.random() * 0.01), // ±0.5% from base
+      '24h': basePrice * (0.98 + Math.random() * 0.04),  // ±2% from base
+      timestamps: {
+        current: now,
+        '1h': now - 3600,
+        '24h': now - 86400
+      },
+      history: [
+        { price: basePrice, timestamp: now - 86400 },
+        { price: basePrice * (0.99 + Math.random() * 0.02), timestamp: now - 43200 },
+        { price: basePrice * (0.995 + Math.random() * 0.01), timestamp: now - 3600 },
+        { price: currentPrice, timestamp: now }
+      ]
+    });
   }
 
   // Get symbol from price ID
   getSymbolFromPriceId(priceId) {
-    // Convert priceId to string and normalize
     let searchId = priceId.toString();
-    
-    // Remove any '0x' prefix if present for comparison
     if (searchId.startsWith('0x')) {
       searchId = searchId.substring(2);
     }
     
     for (const [symbol, id] of Object.entries(PYTH_PRICE_IDS)) {
-      // Remove '0x' prefix from our stored IDs for comparison
       const normalizedId = id.startsWith('0x') ? id.substring(2) : id;
-      
       if (normalizedId === searchId) {
         return symbol;
       }
     }
     
     console.log('Unknown price ID:', searchId);
-    console.log('Available IDs:', Object.values(PYTH_PRICE_IDS).map(id => 
-      id.startsWith('0x') ? id.substring(2) : id
-    ));
     return 'UNKNOWN';
   }
 
@@ -218,11 +301,13 @@ export class PythService {
           const price = feed.getPriceUnchecked();
           const symbol = this.getSymbolFromPriceId(feed.id);
           
-          // Use the same logic as in initialize
           const exponent = price.exponent !== undefined ? price.exponent : -8;
           const confidence = price.confidence !== undefined ? price.confidence : 
                             price.price * 0.001;
           
+          const actualPrice = Number(price.price) * Math.pow(10, exponent);
+          
+          // Update current price feed
           this.priceFeeds.set(symbol, {
             price: price.price,
             confidence: confidence,
@@ -231,13 +316,16 @@ export class PythService {
             symbol: symbol,
             isMock: false
           });
+
+          // Update price history for change calculations
+          this.updatePriceHistory(symbol, actualPrice, price.publishTime);
         });
   
-        console.log('Pyth prices updated');
+        console.log('Pyth prices updated with real-time data');
       } catch (error) {
         console.error('Pyth price update failed:', error);
       }
-    }, 30000);
+    }, 30000); // Update every 30 seconds
   }
 
   // Get current price for a symbol
@@ -249,16 +337,13 @@ export class PythService {
     }
   
     try {
-      // Use the exponent from the feed (with default fallback)
       const exponent = feed.exponent !== undefined ? feed.exponent : -8;
       const actualPrice = Number(feed.price) * Math.pow(10, exponent);
       
-      // Calculate confidence with proper fallback
       let confidenceInterval;
       if (feed.confidence !== undefined && feed.confidence !== null) {
         confidenceInterval = Number(feed.confidence) * Math.pow(10, exponent);
       } else {
-        // Default confidence: 0.1% of the price
         confidenceInterval = actualPrice * 0.001;
       }
   
@@ -271,7 +356,6 @@ export class PythService {
         isMock: feed.isMock || false
       };
   
-      console.log(`getPrice(${symbol}):`, priceData);
       return priceData;
       
     } catch (error) {
@@ -292,35 +376,75 @@ export class PythService {
     return prices;
   }
 
-  // Get price change
+  // Get real price change based on historical data
   getPriceChange(symbol, period = '24h') {
     const priceData = this.getPrice(symbol);
-    if (!priceData) return null;
-
-    // For mock data, generate realistic changes
-    if (priceData.isMock) {
-      const change = (Math.random() * 10 - 5).toFixed(2);
-      const trend = Math.abs(change) < 0.5 ? 'flat' : change > 0 ? 'up' : 'down';
-      
-      return { 
-        change: parseFloat(change), 
-        trend 
-      };
+    if (!priceData) {
+      console.log(`No price data found for ${symbol}`);
+      return { change: 0, trend: 'flat' };
     }
-
-    // Mock changes for real data (in production, calculate from historical)
-    const mockChanges = {
-      BTC: { change: 2.5, trend: 'up' },
-      ETH: { change: -1.2, trend: 'down' },
-      SOL: { change: 5.7, trend: 'up' },
-      BNB: { change: 0.8, trend: 'up' },
-      USDC: { change: 0.1, trend: 'flat' },
-      DAI: { change: -0.2, trend: 'down' },
+  
+    const history = this.priceHistory.get(symbol);
+    if (!history) {
+      console.log(`No history found for ${symbol}`);
+      return { change: 0, trend: 'flat' };
+    }
+  
+    let previousPrice;
+    let change;
+  
+    switch (period) {
+      case '1h':
+        previousPrice = history['1h'];
+        change = this.calculatePriceChange(priceData.price, previousPrice);
+        break;
+      case '24h':
+        previousPrice = history['24h'];
+        change = this.calculatePriceChange(priceData.price, previousPrice);
+        break;
+      default:
+        // For other periods, use the oldest available data
+        if (history.history.length > 1) {
+          const oldestPrice = history.history[0].price;
+          change = this.calculatePriceChange(priceData.price, oldestPrice);
+        } else {
+          change = 0;
+        }
+    }
+  
+    const trend = this.getPriceTrend(change);
+    
+    console.log(`Price change for ${symbol}:`, {
+      currentPrice: priceData.price,
+      previousPrice,
+      change,
+      trend,
+      period
+    });
+    
+    // Return the exact format expected by frontend
+    return { 
+      change: change, 
+      trend: trend
     };
+  }
 
-    return mockChanges[symbol] || { change: 0, trend: 'flat' };
+  // Get detailed price history for a symbol
+  getPriceHistory(symbol) {
+    return this.priceHistory.get(symbol) || null;
+  }
+
+  // Get all price changes
+  getAllPriceChanges(period = '24h') {
+    const changes = {};
+    for (const [symbol] of Object.entries(PYTH_PRICE_IDS)) {
+      const changeData = this.getPriceChange(symbol, period);
+      if (changeData) {
+        changes[symbol] = changeData;
+      }
+    }
+    return changes;
   }
 }
 
-// Create and export singleton instance
 export const pythService = new PythService();
