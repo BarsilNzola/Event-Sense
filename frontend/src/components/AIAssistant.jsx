@@ -431,34 +431,89 @@ export default function AIAssistant({ markets }) {
                   paddingTop: '8px',
                   borderTop: '1px solid #E5E7EB',
                   display: 'flex',
-                  gap: '8px',
-                  alignItems: 'center',
+                  flexDirection: 'column',
+                  gap: '4px',
                   fontSize: '0.7rem'
                 }}>
                   {msg.storage.status === 'stored' && (
                     <>
-                      <span style={{ color: '#166534' }}>Stored on</span>
-                      {msg.storage.ipfs && (
-                        <a 
-                          href={msg.storage.ipfsUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ color: '#0F9E99', textDecoration: 'none' }}
-                        >
-                          IPFS
-                        </a>
-                      )}
-                      {msg.storage.blockchain && (
-                        <a 
-                          href={msg.storage.blockchainUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ color: '#0F9E99', textDecoration: 'none' }}
-                        >
-                          Blockchain
-                        </a>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ color: '#166534', fontWeight: '600' }}>Permanently Stored:</span>
+                        
+                        {msg.storage.ipfs && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ color: '#6B7280' }}>IPFS:</span>
+                            <a 
+                              href={msg.storage.ipfsUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              style={{ 
+                                color: '#0F9E99', 
+                                textDecoration: 'none',
+                                fontFamily: 'monospace',
+                                fontSize: '0.65rem',
+                                backgroundColor: '#F3F4F6',
+                                padding: '2px 6px',
+                                borderRadius: '4px'
+                              }}
+                              title={msg.storage.ipfs}
+                            >
+                              {msg.storage.ipfs.substring(0, 12)}...
+                            </a>
+                          </div>
+                        )}
+                        
+                        {msg.storage.blockchain && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ color: '#6B7280' }}>Blockchain:</span>
+                            <a 
+                              href={msg.storage.blockchainUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              style={{ 
+                                color: '#0F9E99', 
+                                textDecoration: 'none',
+                                fontFamily: 'monospace',
+                                fontSize: '0.65rem',
+                                backgroundColor: '#F3F4F6',
+                                padding: '2px 6px',
+                                borderRadius: '4px'
+                              }}
+                              title={msg.storage.blockchain}
+                            >
+                              {msg.storage.blockchain.substring(0, 10)}...
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Show storage timestamp if available */}
+                      {msg.storage.storedAt && (
+                        <div style={{ color: '#6B7280', fontSize: '0.6rem' }}>
+                          Stored: {new Date(msg.storage.storedAt).toLocaleString()}
+                        </div>
                       )}
                     </>
+                  )}
+                  
+                  {/* Show other storage statuses */}
+                  {msg.storage.status === 'pending' && (
+                    <div style={{ color: '#D97706', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: '#D97706',
+                        animation: 'pulse 1.5s infinite'
+                      }}></div>
+                      Storage in progress...
+                    </div>
+                  )}
+                  
+                  {msg.storage.status === 'failed' && (
+                    <div style={{ color: '#DC2626', fontSize: '0.65rem' }}>
+                      Storage failed: {msg.storage.error || 'Unknown error'}
+                    </div>
                   )}
                 </div>
               )}
