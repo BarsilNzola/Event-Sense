@@ -52,7 +52,7 @@ class AutoInsightsService {
       // Fetch all data sources in parallel
       const [priceData, priceChanges, marketData, newsData] = await Promise.allSettled([
         pythService.getAllPrices(),
-        pythService.getAllPriceChanges('24h'),
+        pythService.getAllPriceChanges(),
         polymarketService.getMarketData(),
         newsService.getNews()
       ]);
