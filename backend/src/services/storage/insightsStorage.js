@@ -1,5 +1,5 @@
 import { uploadToLighthouse } from "../lighthouse/lighthouseService.js";
-import { storeCIDOnChain } from "../chain/chainService.js";
+import { storeCIDOnChain, getAllSummaries } from "../chain/chainService.js";
 
 export class InsightsStorage {
   constructor() {
@@ -53,6 +53,86 @@ export class InsightsStorage {
         error: error.message,
         insightId: insight.id
       };
+    }
+  }
+
+  // Get all stored insights from IPFS using blockchain CIDs
+  async getAllStoredInsights() {
+    try {
+      console.log('Fetching all insights from Lighthouse storage...');
+      
+      // Get all CIDs from blockchain
+      const summaries = await getAllSummaries();
+      console.log(`Found ${summaries.length} insights on blockchain`);
+      
+      const insights = [];
+      
+      for (const summary of summaries) {
+        try {
+          // Fetch insight data from IPFS using the CID
+          const insight = await this.getInsightFromIPFS(summary.cid);
+          if (insight) {
+            insights.push({
+              ...insight,
+              storage: {
+                ipfs: summary.cid,
+                blockchain: summary.txHash,
+                ipfsUrl: this.getInsightUrl(summary.cid),
+                blockchainUrl: summary.txHash ? this.getBlockchainUrl(summary.txHash) : null,
+                status: 'stored',
+                storedAt: summary.timestamp
+              }
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to fetch insight ${summary.cid}:`, error.message);
+        }
+      }
+      
+      // Sort by timestamp (newest first)
+      const sortedInsights = insights.sort((a, b) => 
+        new Date(b.timestamp) - new Date(a.timestamp)
+      );
+      
+      console.log(`Successfully loaded ${sortedInsights.length} insights from IPFS`);
+      return sortedInsights;
+      
+    } catch (error) {
+      console.error('Failed to get all insights:', error.message);
+      return [];
+    }
+  }
+
+  // Fetch a single insight from IPFS by CID
+  async getInsightFromIPFS(cid) {
+    try {
+      const response = await fetch(this.getInsightUrl(cid));
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Failed to fetch insight ${cid} from IPFS:`, error.message);
+      return null;
+    }
+  }
+
+  // Get insights from the last 24 hours
+  async getRecentInsights(hours = 24) {
+    try {
+      const allInsights = await this.getAllStoredInsights();
+      const cutoffTime = new Date(Date.now() - (hours * 60 * 60 * 1000));
+      
+      const recentInsights = allInsights.filter(insight => 
+        new Date(insight.timestamp) >= cutoffTime
+      );
+      
+      console.log(`Found ${recentInsights.length} insights from last ${hours} hours`);
+      return recentInsights;
+      
+    } catch (error) {
+      console.error('Failed to get recent insights:', error.message);
+      return [];
     }
   }
 

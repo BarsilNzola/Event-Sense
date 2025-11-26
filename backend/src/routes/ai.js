@@ -47,12 +47,33 @@ router.get('/debug-gemini', async (req, res) => {
 // Get insights history (last 2 hours)
 router.get("/insights/history", async (req, res) => {
   try {
-    const insights = autoInsightsService.getInsightsHistory();
+    // First try to get from memory cache (fast)
+    const memoryInsights = autoInsightsService.getInsightsHistory();
+    
+    // Filter memory insights to only last 2 hours
+    const twoHoursAgo = new Date(Date.now() - (2 * 60 * 60 * 1000));
+    const recentMemoryInsights = memoryInsights.filter(insight => 
+      new Date(insight.timestamp) >= twoHoursAgo
+    );
+    
+    if (recentMemoryInsights.length > 0) {
+      return res.json({
+        success: true,
+        insights: recentMemoryInsights,
+        count: recentMemoryInsights.length,
+        source: "memory_cache",
+        timeframe: "2 hours"
+      });
+    }
+    
+    // If memory is empty, fetch directly from Lighthouse storage but only last 2 hours
+    const storedInsights = await insightsStorage.getRecentInsights(2); // 2 hours only
     
     res.json({
       success: true,
-      insights,
-      count: insights.length,
+      insights: storedInsights,
+      count: storedInsights.length,
+      source: "lighthouse_storage",
       timeframe: "2 hours"
     });
 

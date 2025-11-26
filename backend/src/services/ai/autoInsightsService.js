@@ -11,7 +11,7 @@ class AutoInsightsService {
     this.generationInterval = 15 * 60 * 1000; // 15 minutes
     this.isGenerating = false;
     this.autoUpdateInterval = null;
-    this.historyRetention = 2 * 60 * 60 * 1000; // 2 hours
+    this.historyRetention = 2 * 60 * 60 * 1000; // Keep insights for 2 hours in memory
     this.consecutiveFailures = 0;
     this.maxConsecutiveFailures = 3;
     
@@ -21,7 +21,10 @@ class AutoInsightsService {
   async initialize() {
     console.log('AutoInsightsService: Initializing...');
     
-    // Wait for dependent services to initialize
+    // Load existing insights from Lighthouse storage
+    await this.loadStoredInsights();
+    
+    // Initialize dependent services
     try {
       await Promise.all([
         pythService.initialize(),
@@ -35,7 +38,41 @@ class AutoInsightsService {
     // Start auto-generation after a brief delay
     setTimeout(() => {
       this.startAutoGeneration();
-    }, 15000); // 15 seconds delay
+    }, 10000);
+  }
+
+  // Load insights from Lighthouse storage
+  async loadStoredInsights() {
+    try {
+      console.log('Loading insights from Lighthouse storage...');
+      
+      const storedInsights = await insightsStorage.getRecentInsights(2); // Last 2 hours
+      
+      if (storedInsights.length > 0) {
+        this.insightsHistory = storedInsights;
+        this.lastGenerated = storedInsights[0] ? new Date(storedInsights[0].timestamp).getTime() : null;
+        
+        console.log(`Loaded ${storedInsights.length} insights from Lighthouse storage`);
+        
+        // Check if we need immediate generation
+        const timeSinceLastInsight = this.lastGenerated ? Date.now() - this.lastGenerated : Infinity;
+        const shouldGenerateImmediately = timeSinceLastInsight > this.generationInterval;
+        
+        if (!shouldGenerateImmediately) {
+          const minutesAgo = Math.round(timeSinceLastInsight / 60000);
+          console.log(`Recent stored insight available (${minutesAgo} minutes ago), skipping immediate generation`);
+          return false;
+        }
+      } else {
+        console.log('No stored insights found in Lighthouse storage');
+      }
+      
+      return true; // Generate immediately if no insights or they're old
+      
+    } catch (error) {
+      console.error('Failed to load insights from Lighthouse storage:', error.message);
+      return true; // Generate immediately on error
+    }
   }
 
   async generateInsights() {
@@ -133,14 +170,13 @@ class AutoInsightsService {
       
       // Reset failure counter on success
       this.consecutiveFailures = 0;
+      this.lastGenerated = Date.now();
 
-      // Store permanently in background (fire and forget)
+      // Store permanently in background
       this.storeInsightPermanently(newInsight).catch(error => {
         console.error('Background storage failed:', error.message);
       });
 
-      this.lastGenerated = Date.now();
-      
       console.log('Auto-insights: Generation completed successfully', {
         duration: `${Date.now() - generationStart}ms`,
         totalInsights: this.insightsHistory.length,
@@ -376,7 +412,7 @@ class AutoInsightsService {
       findings.push(`High confidence: ${highProbMarket.question.substring(0, 50)}...`);
     }
 
-    return findings.slice(0, 3); // Return top 3 findings
+    return findings.slice(0, 3);
   }
 
   // Create contextual fallback based on available data
@@ -409,7 +445,7 @@ class AutoInsightsService {
     return fallbackInsight;
   }
 
-  // Storage method (unchanged from your original)
+  // Storage method
   async storeInsightPermanently(insight) {
     try {
       console.log('Starting permanent storage for insight:', insight.id);

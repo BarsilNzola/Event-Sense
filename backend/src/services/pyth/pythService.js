@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from "url";
+import { uploadToLighthouse } from "../lighthouse/lighthouseService.js";
 
 // Get current directory for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -41,10 +42,12 @@ export class PythService {
   constructor() {
     this.connection = null;
     this.priceFeeds = new Map();
-    this.priceHistory = new Map(); // Store 24h price history
+    this.dailySnapshot = new Map(); // Stores Asian session opening prices
     this.isConnected = false;
     this.useMock = false;
     this.initializationPromise = null;
+    this.lastSnapshotDate = null;
+    this.asianSessionHour = 0; // 00:00 UTC (8:00 AM Singapore/Hong Kong time)
   }
 
   async initialize() {
@@ -53,6 +56,12 @@ export class PythService {
     }
 
     this.initializationPromise = (async () => {
+      // Load previous daily snapshot from Lighthouse
+      await this.loadDailySnapshot();
+      
+      // Check if we need to take a new snapshot for today
+      await this.checkAndUpdateSnapshot();
+      
       if (this.useMock || this.isConnected) {
         return;
       }
@@ -83,15 +92,15 @@ export class PythService {
               symbol: symbol,
               isMock: false
             });
-
-            // Initialize 24h price history
-            this.initialize24hHistory(symbol, actualPrice, price.publishTime);
           });
         }
 
         this.isConnected = true;
         console.log('Pyth Network connected successfully');
+        console.log(`Daily snapshot loaded for ${this.dailySnapshot.size} symbols`);
+        
         this.startPriceUpdates();
+        this.startSnapshotScheduler();
         
       } catch (error) {
         console.error('Pyth Network initialization failed:', error);
@@ -104,70 +113,128 @@ export class PythService {
     return this.initializationPromise;
   }
 
-  // Initialize 24h price history
-  initialize24hHistory(symbol, currentPrice, timestamp) {
-    if (!this.priceHistory.has(symbol)) {
-      this.priceHistory.set(symbol, {
-        currentPrice: currentPrice,
-        price24hAgo: currentPrice, // Will be updated as we get more data
-        timestamp24hAgo: timestamp,
-        history: [{ price: currentPrice, timestamp: timestamp }]
-      });
-    }
-  }
-
-  // Update 24h price history
-  update24hHistory(symbol, newPrice, timestamp) {
-    if (!this.priceHistory.has(symbol)) {
-      this.initialize24hHistory(symbol, newPrice, timestamp);
-      return;
-    }
-
-    const history = this.priceHistory.get(symbol);
-    const twentyFourHoursAgo = Math.floor(Date.now() / 1000) - 86400;
-
-    // Update current price
-    history.currentPrice = newPrice;
-    history.history.push({ price: newPrice, timestamp: timestamp });
-
-    // Keep only last 48 hours of data (safety buffer)
-    const cutoffTime = Math.floor(Date.now() / 1000) - (86400 * 2);
-    history.history = history.history.filter(point => point.timestamp > cutoffTime);
-
-    // Find price closest to 24 hours ago
-    const price24hAgo = this.find24hPrice(history.history, twentyFourHoursAgo);
-    if (price24hAgo !== null) {
-      history.price24hAgo = price24hAgo.price;
-      history.timestamp24hAgo = price24hAgo.timestamp;
-    }
-
-    console.log(`24h history updated for ${symbol}: ${history.price24hAgo} -> ${newPrice}`);
-  }
-
-  // Find price closest to 24 hours ago
-  find24hPrice(history, targetTimestamp) {
-    if (history.length === 0) return null;
-
-    let closest = history[0];
-    let minDiff = Math.abs(history[0].timestamp - targetTimestamp);
-
-    for (const point of history) {
-      const diff = Math.abs(point.timestamp - targetTimestamp);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closest = point;
+  // Load daily snapshot from Lighthouse storage
+  async loadDailySnapshot() {
+    try {
+      // Try to fetch the latest daily snapshot from Lighthouse
+      // We'll use a fixed CID or track the latest snapshot CID
+      const snapshotCid = await this.getLatestSnapshotCid();
+      if (snapshotCid) {
+        const response = await fetch(`https://gateway.lighthouse.storage/ipfs/${snapshotCid}`);
+        if (response.ok) {
+          const snapshot = await response.json();
+          this.dailySnapshot = new Map(Object.entries(snapshot.prices));
+          this.lastSnapshotDate = snapshot.date;
+          console.log(`Loaded daily snapshot from ${snapshot.date} with ${this.dailySnapshot.size} symbols`);
+          return;
+        }
       }
+      
+      // If no snapshot exists, initialize empty
+      console.log('No existing daily snapshot found');
+      this.dailySnapshot = new Map();
+      
+    } catch (error) {
+      console.error('Failed to load daily snapshot:', error);
+      this.dailySnapshot = new Map();
     }
-
-    // Only return if within 2 hours window
-    return Math.abs(closest.timestamp - targetTimestamp) <= 7200 ? closest : null;
   }
 
-  // Calculate 24h price change percentage
-  calculate24hChange(currentPrice, price24hAgo) {
-    if (!price24hAgo || price24hAgo === 0) return 0;
+  // Get the latest snapshot CID (you might want to store this in a config or database)
+  async getLatestSnapshotCid() {
+    // In a real implementation, you'd store and retrieve this from a persistent location
+    // For now, we'll return null to trigger new snapshot creation
+    return null;
+  }
+
+  // Check if we need to take a new daily snapshot
+  async checkAndUpdateSnapshot() {
+    const now = new Date();
+    const currentHourUTC = now.getUTCHours();
+    const today = now.toISOString().split('T')[0];
     
-    const change = ((currentPrice - price24hAgo) / price24hAgo) * 100;
+    // Check if it's Asian session time (00:00 UTC) and we haven't taken today's snapshot
+    if (currentHourUTC === this.asianSessionHour && this.lastSnapshotDate !== today) {
+      console.log('Asian market session started - taking daily snapshot');
+      await this.takeDailySnapshot();
+    }
+  }
+
+  // Take daily snapshot at Asian market open
+  async takeDailySnapshot() {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const snapshotPrices = {};
+      
+      // Capture current prices for all symbols
+      for (const [symbol] of Object.entries(PYTH_PRICE_IDS)) {
+        const priceData = this.getPrice(symbol);
+        if (priceData) {
+          snapshotPrices[symbol] = {
+            price: priceData.price,
+            timestamp: new Date().toISOString()
+          };
+          this.dailySnapshot.set(symbol, priceData.price);
+        }
+      }
+
+      const snapshot = {
+        type: 'daily_asian_session_snapshot',
+        date: today,
+        session: 'asian',
+        timestamp: new Date().toISOString(),
+        prices: snapshotPrices
+      };
+
+      // Store to Lighthouse
+      const cid = await uploadToLighthouse(snapshot);
+      if (cid) {
+        this.lastSnapshotDate = today;
+        console.log(`Daily Asian session snapshot saved: ${cid}`);
+        
+        // Store the CID for future retrieval (you might want to save this to a database)
+        this.lastSnapshotCid = cid;
+      }
+      
+    } catch (error) {
+      console.error('Failed to take daily snapshot:', error);
+    }
+  }
+
+  // Schedule daily snapshot at Asian market open
+  startSnapshotScheduler() {
+    // Calculate milliseconds until next Asian session (00:00 UTC)
+    const now = new Date();
+    const nextSnapshot = new Date(now);
+    nextSnapshot.setUTCHours(this.asianSessionHour, 0, 0, 0);
+    
+    if (nextSnapshot <= now) {
+      nextSnapshot.setDate(nextSnapshot.getDate() + 1);
+    }
+    
+    const delay = nextSnapshot.getTime() - now.getTime();
+    
+    console.log(`Next daily snapshot scheduled for: ${nextSnapshot.toISOString()} (in ${Math.round(delay / 1000 / 60)} minutes)`);
+    
+    setTimeout(() => {
+      this.takeDailySnapshot();
+      // Schedule subsequent snapshots every 24 hours
+      setInterval(() => {
+        this.takeDailySnapshot();
+      }, 24 * 60 * 60 * 1000);
+    }, delay);
+  }
+
+  // Calculate 24h change based on Asian session opening price
+  calculate24hChange(currentPrice, symbol) {
+    const sessionOpenPrice = this.dailySnapshot.get(symbol);
+    
+    if (!sessionOpenPrice || sessionOpenPrice === 0) {
+      console.log(`No daily snapshot price for ${symbol}, using current price as baseline`);
+      return 0;
+    }
+    
+    const change = ((currentPrice - sessionOpenPrice) / sessionOpenPrice) * 100;
     return parseFloat(change.toFixed(2));
   }
 
@@ -210,7 +277,6 @@ export class PythService {
           const exponent = price.exponent !== undefined ? price.exponent : -8;
           const actualPrice = Number(price.price) * Math.pow(10, exponent);
           
-          // Update current price feed
           this.priceFeeds.set(symbol, {
             price: price.price,
             confidence: price.confidence || price.price * 0.001,
@@ -219,16 +285,13 @@ export class PythService {
             symbol: symbol,
             isMock: false
           });
-
-          // Update 24h history
-          this.update24hHistory(symbol, actualPrice, price.publishTime);
         });
   
-        console.log('Pyth prices updated with 24h tracking');
+        console.log('Pyth prices updated');
       } catch (error) {
         console.error('Pyth price update failed:', error);
       }
-    }, 30000); // Update every 30 seconds
+    }, 30000);
   }
 
   // Get current price for a symbol
@@ -274,24 +337,19 @@ export class PythService {
     return prices;
   }
 
-  // Get 24h price change ONLY
+  // Get 24h price change based on Asian session opening
   getPriceChange(symbol) {
     const priceData = this.getPrice(symbol);
     if (!priceData) {
       return { change: 0, trend: 'flat' };
     }
 
-    const history = this.priceHistory.get(symbol);
-    if (!history) {
-      return { change: 0, trend: 'flat' };
-    }
-
-    const change = this.calculate24hChange(priceData.price, history.price24hAgo);
+    const change = this.calculate24hChange(priceData.price, symbol);
     const trend = this.getPriceTrend(change);
     
-    console.log(`24h price change for ${symbol}:`, {
+    console.log(`24h price change for ${symbol} (Asian session):`, {
       currentPrice: priceData.price,
-      price24hAgo: history.price24hAgo,
+      sessionOpenPrice: this.dailySnapshot.get(symbol),
       change,
       trend
     });
@@ -299,7 +357,8 @@ export class PythService {
     return { 
       change: change, 
       trend: trend,
-      period: '24h'
+      period: '24h',
+      baseline: 'asian_session_open'
     };
   }
 
@@ -315,7 +374,7 @@ export class PythService {
     return changes;
   }
 
-  // Mock data methods (simplified for 24h only)
+  // Mock data methods
   initializeMockData() {
     const mockPrices = {
       BTC: 45000 + Math.random() * 5000,
@@ -337,52 +396,14 @@ export class PythService {
         isMock: true
       });
 
-      // Initialize mock 24h history
-      const basePrice = mockPrices[symbol] * (0.95 + Math.random() * 0.1); // ±5% variation
-      this.priceHistory.set(symbol, {
-        currentPrice: mockPrices[symbol],
-        price24hAgo: basePrice,
-        timestamp24hAgo: Math.floor(Date.now() / 1000) - 86400,
-        history: [
-          { price: basePrice, timestamp: Math.floor(Date.now() / 1000) - 86400 },
-          { price: mockPrices[symbol], timestamp: Math.floor(Date.now() / 1000) }
-        ]
-      });
+      // Initialize mock daily snapshot
+      this.dailySnapshot.set(symbol, mockPrices[symbol]);
     });
 
     this.isConnected = true;
-    console.log('Mock price data initialized (24h tracking)');
-    this.startMockUpdates();
-  }
-
-  startMockUpdates() {
-    setInterval(() => {
-      this.priceFeeds.forEach((feed, symbol) => {
-        if (feed.isMock && symbol !== 'USDC' && symbol !== 'DAI') {
-          // Simulate 24h price movements
-          const change = (Math.random() - 0.5) * 0.02; // ±1% change
-          const currentPrice = Number(feed.price) * Math.pow(10, feed.exponent);
-          const newPrice = currentPrice * (1 + change);
-          
-          this.priceFeeds.set(symbol, {
-            ...feed,
-            price: Math.floor(newPrice * Math.pow(10, -feed.exponent)),
-            timestamp: Math.floor(Date.now() / 1000)
-          });
-
-          // Update 24h history for mock data
-          const history = this.priceHistory.get(symbol);
-          if (history) {
-            history.currentPrice = newPrice;
-            // For mock data, we simulate finding a 24h old price
-            history.price24hAgo = newPrice * (0.98 + Math.random() * 0.04); // ±2% variation
-          }
-        }
-      });
-      console.log('Mock 24h prices updated');
-    }, 30000);
+    this.lastSnapshotDate = new Date().toISOString().split('T')[0];
+    console.log('Mock price data initialized with daily snapshot');
   }
 }
 
-// Create and export singleton instance
 export const pythService = new PythService();
